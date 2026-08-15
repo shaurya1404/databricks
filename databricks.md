@@ -109,15 +109,18 @@ Can be divided into 2 types:
 
 2) Access Mode (Dedicated vs Standard): "Who" can access "What" data? Dedicated allows only one user to access the cluster. Standard clusters allows sdharing the cluster among multiple users and support process isolation.
 
-3) Databricks Runtime(Databricks Runtime vs Databricks Runtime ML): The set of core libraries that run uniformaly in a cluster.
-Databricks Runtime = Apache Spark + Supporting libraries + Photon (Vectorized engine to boost Apache Spark)
+3) Databricks Runtime(Databricks Runtime vs Databricks Runtime ML): The software specs & core libraries that run uniformaly in a cluster.
+Databricks Runtime = Apache Spark + Supporting libraries + Photon
 Databricks Runtime ML = Apache Spark + ML Libraries (PyTorch, Keras, TensorFlow) + Supporting Libraries + Photon
+
+**Note**: LTS stands for Long-Term Support - supported for three years vs six months for a regular release. Use LTS for Production workloads
+**Note**: Photon is an optional vectorized engine that boosts Spark engine - more expensive per unit time but save costs on larger workloads since queries finish sooner
 
 4) Auto Termination: Time after which cluster is automatically terminated to avoid unnecessary costs
 
 5) Auto Scaling: Min/Max worker nodes between which auto scaling takes place. Spot instances are allowed for Worker nodes (Not driver)
 Spot instances: Unused VMs in the Cloud that are offered at cheaper price but can be preempted by a customer paying regular price.
 
-6) VM Type: Memory-optimized, Compute-optimized, Storage-optimized, General Purpose, GPU Accelerated
+6) VM Type: The hardware specs - Memory-optimized, Compute-optimized, Storage-optimized, General Purpose, GPU Accelerated
 
 7) Cluster Policy: Can be set by admins to restrict or pre-configure the above setting for clusters for specific users
