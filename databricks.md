@@ -11,8 +11,8 @@ Analysts and Business could access the clean, transformed and enhanced data from
 
 ## Limitations of DWs
 
-1) With the boom of the Internet, unstructured data became impotant as well for decision making
-2) With ETL operations, ingestion time for new data was unsatisfactory
+1) With the boom of the Internet, unstructured data became important as well for decision making
+2) With ETL operations, ingestion time became a constraint for development time as new data would have to be transformed first to meet quality
 3) Data Warehouses ran on Massive Parallel Processing engines (MPPs) which used proprietary file formats. Thus, organizations would be locked to one vendor
 4) Traditional Data Warehouses are not suitable for Data Science and ML development which need unstructured data.
 
@@ -33,7 +33,7 @@ However, Data Lakes weren't suitable for BI analysis and reports. So, as a stopg
 
 ## Limitations of DLs - Data Swamps
 
-1) No support for ACID Transations: Atomicity, Consistency, Isolation, and Durability
+1) No support for ACID Transactions: Atomicity, Consistency, Isolation, and Durability
 
 - Atomicity: No partial transactions - it either fully applies or leaves no trace. For example: debit account X, credit account Y. A non-atomic operation would lead to money destroyed in case of a crash. In Data lakes, a table write is hundreds of files with no moment where they all appear; failed jobs leave orphans - Data Swamp.
 
@@ -47,7 +47,7 @@ However, Data Lakes weren't suitable for BI analysis and reports. So, as a stopg
 
 3) No Version Control: Made it hard to track changes, perform rollbacks, or ensure data governance
 
-4) Poor BI Support: Strugled to perform fast query performance.
+4) Poor BI Support: Struggled to perform fast query performance.
 
 # Databricks - Data Lakehouses
 
@@ -55,7 +55,7 @@ Databricks enables one to build a modern Data Lakehouse platform.
 
 A Data Lakehouse is a new data management architecture that combines the flexibility and cost-efficiency of Data Lakes with the data management and ACID transactions of Data Warehouses, enabling Business Intellgience and AI/ML/DS on a unified platform.
 
-Data Lakehouses can be used for Data Science annd AI/ML workloads while also integrating bwith BI tools such as Power BI and Tableau
+Data Lakehouses can be used for Data Science annd AI/ML workloads while also integrating with BI tools such as Power BI and Tableau
 
 Data Lakehouse = Data Lake + ACID Transactions (Delta Lake Files) + Data Governance (Unity Catalog)
 
@@ -74,3 +74,50 @@ Quality of data improves in each layer.
 - Bronze: Raw ingested data with minimal changes
 - Silver: Cleansed, transformed and standarized data. Suitable for AI/ML
 - Gold: Further aggregated and enriched with context using patterns like Star Schema. Suitable for BI reports.
+
+# Databricks Architecture
+
+Databricks splits the platform into a **control layer** (Web UI, Compute Orchestration, Unity Catalog) that manages and orchestrates the cluster runs and a **compute layer** (Classical or Serverless) that runs the actual workloads.
+
+- Web UI: Allows interation with worloads, notebooks, queries, etc. through the browser
+- Compute Orchestration: Cluster or Job launch, number and type of workers, Autoscaling
+- Unity Catalog: Data Governance and Lineage
+- Classical Compute: Complex but high controlable/configurable clusters managed by the Cloud Platform
+- Serverless Compute: Simple/Abstracted but less controlable clusters managewd by Databricks
+
+## Classical Compute
+
+Allow low-level configuration and maximum control over the cluster
+
+Can be divided into 2 types: 
+
+1) All Purpose Clsuter
+- Created for ad hoc workloads
+- Can be persisted even after job finishes
+- Can be shared among users
+- Costlier
+
+2) Job Clusters
+- Created for regular and recurring jobs
+- Automatically terminated after each job finishes
+- Isloated only to the job being executed
+- Cheaper
+
+### Cluster Config Options in Classical Compute
+
+1) Single vs Multi Node: Driver has one or more worker nodes OR a single node is both the driver and the worker. Unlike multi-node clusters, single node clusters do not support process isolation and not intended for sharing of cluster with other users. 
+
+2) Access Mode (Dedicated vs Standard): "Who" can access "What" data? Dedicated allows only one user to access the cluster. Standard clusters allows sdharing the cluster among multiple users and support process isolation.
+
+3) Databricks Runtime(Databricks Runtime vs Databricks Runtime ML): The set of core libraries that run uniformaly in a cluster.
+Databricks Runtime = Apache Spark + Supporting libraries + Photon (Vectorized engine to boost Apache Spark)
+Databricks Runtime ML = Apache Spark + ML Libraries (PyTorch, Keras, TensorFlow) + Supporting Libraries + Photon
+
+4) Auto Termination: Time after which cluster is automatically terminated to avoid unnecessary costs
+
+5) Auto Scaling: Min/Max worker nodes between which auto scaling takes place. Spot instances are allowed for Worker nodes (Not driver)
+Spot instances: Unused VMs in the Cloud that are offered at cheaper price but can be preempted by a customer paying regular price.
+
+6) VM Type: Memory-optimized, Compute-optimized, Storage-optimized, General Purpose, GPU Accelerated
+
+7) Cluster Policy: Can be set by admins to restrict or pre-configure the above setting for clusters for specific users
