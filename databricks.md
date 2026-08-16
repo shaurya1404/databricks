@@ -85,6 +85,8 @@ Databricks splits the platform into a **control layer** (Web UI, Compute Orchest
 - Classical Compute: Complex but high controlable/configurable clusters managed by the Cloud Platform
 - Serverless Compute: Simple/Abstracted but less controlable clusters managewd by Databricks
 
+**Note**: The words compute and cluster are used interchangyably in pratical use cases
+
 ## Classical Compute
 
 Allow low-level configuration and maximum control over the cluster
@@ -124,3 +126,19 @@ Spot instances: Unused VMs in the Cloud that are offered at cheaper price but ca
 6) VM Type: The hardware specs - Memory-optimized, Compute-optimized, Storage-optimized, General Purpose, GPU Accelerated
 
 7) Cluster Policy: Can be set by admins to restrict or pre-configure the above setting for clusters for specific users
+
+## Notebooks
+
+Notebook: A Jupyter-style interactive document made of cells, attached to compute. 
+You run a cell, the code goes to the cluster, the result comes back and is displayed inline. The notebook itself is a control-layer object; the execution happens on the cluster it's attached to.
+
+Volume: Unity Catalog objects that govern non-tabular data — files. Tables govern your rows and columns; volumes govern your PDFs, images, CSVs, JSON drops, ML model artifacts
+
+## Magic Commands
+
+**%python, %sql, %scala, %r**: Override the default language executed in a cell
+**%md**: To write markdown text
+**%fs**: Run file system commands
+**%sh**: Run shell commands (Driver node only)
+**%pip**: Install Python libraries
+**%run**: Import code from other notebooks into the current one - allow us to modularize the code
