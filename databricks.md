@@ -7,7 +7,7 @@ A Data Warehouse performs ETL operations in order to reconcile data from various
 The data received in a data warehouse is either structured such as SQL tables or semi-structured such as CSV or JSON format.
 Data Warehouses cannot handle unstructured data such as PDFs, images, or videos.
 
-Analysts and Business could access the clean, transformed and enhanced data from Data Warehouses for BI reports.
+Analysts and Businesses access the clean, transformed and enhanced data from Data Warehouses for BI reports.
 
 ## Limitations of DWs
 
@@ -79,11 +79,11 @@ Quality of data improves in each layer.
 
 Databricks splits the platform into a **control layer** (Web UI, Compute Orchestration, Unity Catalog) that manages and orchestrates the cluster runs and a **compute layer** (Classical or Serverless) that runs the actual workloads.
 
-- Web UI: Allows interation with worloads, notebooks, queries, etc. through the browser
+- Web UI: Allows interation with workloads, notebooks, queries, etc. through the browser
 - Compute Orchestration: Cluster or Job launch, number and type of workers, Autoscaling
 - Unity Catalog: Data Governance and Lineage
-- Classical Compute: Complex but high controlable/configurable clusters managed by the Cloud Platform
-- Serverless Compute: Simple/Abstracted but less controlable clusters managewd by Databricks
+- Classical Compute: Complex but high controlability/configurability clusters managed by the Cloud Platform
+- Serverless Compute: Simple/Abstracted but low controlability clusters managewd by Databricks
 
 **Note**: The words compute and cluster are used interchangyably in pratical use cases
 
@@ -93,7 +93,7 @@ Allow low-level configuration and maximum control over the cluster
 
 Can be divided into 2 types: 
 
-1) All Purpose Clsuter
+1) All Purpose Cluster
 - Created for ad hoc workloads
 - Can be persisted even after job finishes
 - Can be shared among users
@@ -102,30 +102,30 @@ Can be divided into 2 types:
 2) Job Clusters
 - Created for regular and recurring jobs
 - Automatically terminated after each job finishes
-- Isloated only to the job being executed
+- Isolated only to the job being executed
 - Cheaper
 
 ### Cluster Config Options in Classical Compute
 
 1) Single vs Multi Node: Driver has one or more worker nodes OR a single node is both the driver and the worker. Unlike multi-node clusters, single node clusters do not support process isolation and not intended for sharing of cluster with other users. 
 
-2) Access Mode (Dedicated vs Standard): "Who" can access "What" data? Dedicated allows only one user to access the cluster. Standard clusters allows sdharing the cluster among multiple users and support process isolation.
+2) Access Mode (Dedicated vs Standard): Who can access the cluster? Dedicated allows only one user to access the cluster. Standard clusters allows sharing the cluster among multiple users and support process isolation.
 
 3) Databricks Runtime(Databricks Runtime vs Databricks Runtime ML): The software specs & core libraries that run uniformaly in a cluster.
-Databricks Runtime = Apache Spark + Supporting libraries + Photon
-Databricks Runtime ML = Apache Spark + ML Libraries (PyTorch, Keras, TensorFlow) + Supporting Libraries + Photon
+- Databricks Runtime = Apache Spark + Supporting libraries + Photon
+- Databricks Runtime ML = Apache Spark + ML Libraries (PyTorch, Keras, TensorFlow) + Supporting Libraries + Photon
 
 **Note**: LTS stands for Long-Term Support - supported for three years vs six months for a regular release. Use LTS for Production workloads
-**Note**: Photon is an optional vectorized engine that boosts Spark engine - more expensive per unit time but save costs on larger workloads since queries finish sooner
+**Note**: Photon is an optional vectorized engine that replaces parts of the regular Spark engine for faster processing - more expensive per unit time but save costs on larger workloads since queries finish sooner
 
 4) Auto Termination: Time after which cluster is automatically terminated to avoid unnecessary costs
 
 5) Auto Scaling: Min/Max worker nodes between which auto scaling takes place. Spot instances are allowed for Worker nodes (Not driver)
-Spot instances: Unused VMs in the Cloud that are offered at cheaper price but can be preempted by a customer paying regular price.
+Spot instances: Unused VMs in the Cloud that are offered at cheaper price but can be pre-empted by a customer paying regular price.
 
 6) VM Type: The hardware specs - Memory-optimized, Compute-optimized, Storage-optimized, General Purpose, GPU Accelerated
 
-7) Cluster Policy: Can be set by admins to restrict or pre-configure the above setting for clusters for specific users
+7) Cluster Policy: Can be set by admins to restrict or pre-configure the above settings for clusters for specific users
 
 ## Notebooks
 
@@ -133,6 +133,8 @@ Notebook: A Jupyter-style interactive document made of cells, attached to comput
 You run a cell, the code goes to the cluster, the result comes back and is displayed inline. The notebook itself is a control-layer object; the execution happens on the cluster it's attached to.
 
 Volume: Unity Catalog objects that govern non-tabular data — files. Tables govern your rows and columns; volumes govern your PDFs, images, CSVs, JSON drops, ML model artifacts
+
+Workspace: An isolated Databricks instance that has its own users, notebooks, clusters, jobs, etc.
 
 ## Magic Commands
 
@@ -142,3 +144,50 @@ Volume: Unity Catalog objects that govern non-tabular data — files. Tables gov
 **%sh**: Run shell commands (Driver node only)
 **%pip**: Install Python libraries
 **%run**: Import code from other notebooks into the current one - allow us to modularize the code
+
+## Databricks Utilities (dbutils)
+
+A built-in object that allows you to execute different types of operations within the code itself such as touch the file system, read secrets, and paramterize notebooks.
+
+These utilities can only be run from Python, Scala, or R cells but not SQL cells
+
+### File System Utilities (dbutils.fs)
+
+`%fs` is syntactic sugar around `dbutil.fs`
+
+Use `%fs` for ad hoc queries
+Use `dbutils.fs` for production scripts since it integrates well with Python to perform powerful queries
+
+```python
+items = dbutils.fs.ls('/databricks-datasets/') # .ls returns a LIST of the contents in a folder
+
+# Count number of files and folders in a given folder
+folder_count = len([item for item in items if item.name.endswith('/')])
+file_count = len([item for item in items if not item.name.endswith('/')])
+
+print(f'File Count: {file_count}')
+print(f'Folder Count {folder_count}')
+```
+
+## Databricks Git Folders (Formerly: Repos)
+
+A Git folder (formerly called Repos) is a folder that's a clone of a remote git repository.
+
+An ordinary folder has revision history for notebooks, but that history is workspace-local — it can't be reviewed, branched, or shared. A Git folder makes your notebooks and files real repository contents, so the pull, branching, pushing, and CI/CD pipelines are supported. 
+
+1. DEV WORKSPACE (Databricks)
+   - Git folder = clone of the remote repo; each user gets their own clone,
+     so two people can sit on different branches without interfering.
+   - Create a feature branch, develop, commit, push to remote.
+   - Pull main into the feature branch to stay current. If that pull
+     conflicts, resolve it HERE in the Git folder UI.
+   - Limit: Git folders resolve conflicts on a pull into your own branch.
+     They CANNOT merge branches or handle a PR.
+
+2. GIT PROVIDER (GitHub / Azure DevOps) — outside Databricks
+   - Dev opens a PR: feature → main.
+   - CI runs ON THE PR, BEFORE the merge: tests, linting, sometimes
+     integration tests against a dev/staging workspace.
+   - Branch protection (required approvals + required checks) blocks the
+     merge until CI passes — this is what enforces "manager must approve".
+   - Reviewer approves and merges. Merge happens here, never in Databricks.
