@@ -176,18 +176,12 @@ A Git folder (formerly called Repos) is a folder that's a clone of a remote git 
 An ordinary folder has revision history for notebooks, but that history is workspace-local — it can't be reviewed, branched, or shared. A Git folder makes your notebooks and files real repository contents, so the pull, branching, pushing, and CI/CD pipelines are supported. 
 
 1. DEV WORKSPACE (Databricks)
-   - Git folder = clone of the remote repo; each user gets their own clone,
-     so two people can sit on different branches without interfering.
+   - Git folder = clone of the remote repo; each user gets their own clone, so two people can sit on different branches without interfering.
    - Create a feature branch, develop, commit, push to remote.
-   - Pull main into the feature branch to stay current. If that pull
-     conflicts, resolve it HERE in the Git folder UI.
-   - Limit: Git folders resolve conflicts on a pull into your own branch.
-     They CANNOT merge branches or handle a PR.
+   - Regularly pull main into the feature branch to stay current. If that pull conflicts, resolve it HERE in the Git folder UI.
 
 2. GIT PROVIDER (GitHub / Azure DevOps) — outside Databricks
    - Dev opens a PR: feature → main.
-   - CI runs ON THE PR, BEFORE the merge: tests, linting, sometimes
-     integration tests against a dev/staging workspace.
-   - Branch protection (required approvals + required checks) blocks the
-     merge until CI passes — this is what enforces "manager must approve".
+   - CI runs ON THE PR, BEFORE the merge: tests, linting, sometimes integration tests against a dev/staging workspace.
+   - Branch protection (required approvals + required checks) blocks the merge until CI passes — this is what enforces "manager must approve".
    - Reviewer approves and merges. Merge happens here, never in Databricks.
