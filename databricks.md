@@ -171,7 +171,7 @@ print(f'Folder Count {folder_count}')
 
 ## Databricks Git Folders (Formerly: Repos)
 
-A Git folder (formerly called Repos) is a folder that's a clone of a remote git repository.
+A Git folder (formerly called Repos) is a clone of a remote git repository.
 
 An ordinary folder has revision history for notebooks, but that history is workspace-local — it can't be reviewed, branched, or shared. A Git folder makes your notebooks and files real repository contents, so the pull, branching, pushing, and CI/CD pipelines are supported. 
 
@@ -185,3 +185,49 @@ An ordinary folder has revision history for notebooks, but that history is works
    - CI runs ON THE PR, BEFORE the merge: tests, linting, sometimes integration tests against a dev/staging workspace.
    - Branch protection (required approvals + required checks) blocks the merge until CI passes — this is what enforces "manager must approve".
    - Reviewer approves and merges. Merge happens here, never in Databricks.
+
+# Unity Catalog
+
+It replaces the old Hive Metastore + DBFS architecture
+
+## Hive Metastore (Legacy)
+
+The original metastore - a database containing table names, schemas, views, functions and the storage paths in the cloud where they're stored. Used for structured and semi-structured data giving them structure to allow SQL queries to run on them.
+
+### Limtations of Hive Metastore
+
+1) Workspace-scoped: Unlike Unity Catalog where all workspaces share one metastore for the entire region, connecting multiple workspaces within a single catalog via `catalog.schema.table`, the Hive Metastore is independent for each workspace and provides only a two-level access via `database.table`
+
+2) No fine-grained security: No row level or column level access control
+
+3) No data lineage or data governance 
+
+## Databricks File System (Legacy)
+
+A filesystem abstraction layer over the cloud storage such as Azure Data Lake Storage or Amazon S3. It enables references to data stored opn the cloud directly from the Databricks notebooks or a cluster or a job - usually used for unstructured data
+
+  - DBFS root (dbfs:/): the workspace's own bucket. NOT for production data.
+  - Mounts (/mnt/...): path alias + stored credential.
+  - Core flaw: Mount grants access to anyone with the path + credentials - so, anyone in the cluster. No per-user data governance
+
+## Unity Catalog
+
+A unified solution for accessing table objects (structured/semi-structured) as well as files. Allows creation of tables, views, and functions as objects for structured/semi-structured data as well as Volume objects as an abstraction layer over cloud object storage for unstructured data.
+
+The UC Metastore lives in the account-level (unlike Hive metastore - workspace-level) and only one can be created per Azure region. It connects all the workspaces within that region.
+
+Catalog is just a logical container within the metastore. Usually one per business level (finance/sales/tech) or one per development environment (dev/staging/prod) 
+
+Schemas are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
+
+### Managed vs External
+
+Managed Volumes: Created via the Unity Catalog which then decides the location of where it's stored in the cloud platform storage - manages control access as well as lifecycle of the object.
+
+`DROP VOLUME` deletes the files
+
+External Volumes: A path to the volume already exists in your cloud storage and then we create a Volume to point to it - manages control access but not life cycly of the object.
+
+`DROP VOLUME` removes only the registration — the files stay exactly where they are
+
+**External vs Managed Tables**: The same distinction as Volumes. Managed tables only allow Delat file format whereas, external tables can be Delta, Parquet, CSV, JSON, etc.
