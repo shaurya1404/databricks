@@ -212,13 +212,19 @@ A filesystem abstraction layer over the cloud storage such as Azure Data Lake St
 
 ## Unity Catalog
 
-A unified solution for accessing table objects (structured/semi-structured) as well as files. Allows creation of tables, views, and functions as objects for structured/semi-structured data as well as Volume objects as an abstraction layer over cloud object storage for unstructured data.
+A unified solution for accessing table objects (structured/semi-structured) as well as files. Allows creation of 1. tables, views, and functions as objects for structured/semi-structured data as well as 2. Volume objects as an abstraction layer over cloud object storage for unstructured data.
 
-The UC Metastore lives in the account-level (unlike Hive metastore - workspace-level) and only one can be created per Azure region. It connects all the workspaces within that region.
+The UC Metastore is the top-level container that lives in the account-level (unlike Hive metastore - workspace-level) and only one can be created per Azure region. It connects all the workspaces within that region.
 
 Catalog is just a logical container within the metastore. Usually one per business level (finance/sales/tech) or one per development environment (dev/staging/prod) 
 
-Schemas are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
+Schemas (formerly called databases) are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
+
+- Storage Credentials & External Locations: How UC references to cloud storage outside any of the catalogs
+- Connections: Refers to read-only access to databases in an external database system suchas as MysSQL or PostgreSQL via Lakehouse Federation
+- Share, Recipient, Provider: Handle Delta Sharing
+
+Databricks allows 100% backward compatability with the Hive Metastore in the form of a reserved pseudo-catalog called `hive_metastore`
 
 ### Managed vs External
 
