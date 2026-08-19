@@ -220,7 +220,7 @@ Catalog is just a logical container within the metastore. Usually one per busine
 
 Schemas (formerly called databases) are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
 
-- Storage Credentials & External Locations: How UC references to cloud storage outside any of the catalogs
+- Storage Credentials & External Locations: How UC references to cloud storage other than the default Metastore
 - Connections: Refers to read-only access to databases in an external database system suchas as MysSQL or PostgreSQL via Lakehouse Federation
 - Share, Recipient, Provider: Handle Delta Sharing
 
@@ -237,3 +237,47 @@ External Volumes: A path to the volume already exists in your cloud storage and 
 `DROP VOLUME` removes only the registration — the files stay exactly where they are
 
 **External vs Managed Tables**: The same distinction as Volumes. Managed tables only allow Delat file format whereas, external tables can be Delta, Parquet, CSV, JSON, etc.
+
+Storage Credentials: An authentication and authorization mechanism for accessing data in the cloud storage. Can be created using Managed Principles which is a way to autheticate and authorize Azure resources without needing to manage credentials manually.
+
+External Location: An object that combines a Storage Credential to an Azure Data Lake Storage (ADLS) Container. So, when a user tires to access an External Location, the UC knows which Storage Credentaisl to use for them
+
+1) Create an Access Connector
+
+An Access Connector is an Azure resource that's a wrapper for a Managed Identity. It connects that Managed Identity to the Unity Catalog for the purpose of authentication to access data registered inside the Unity catalog but stored in the Cloud Platform.
+
+The managed identity carries NO permissions on its own; it is only "I'm the Unity Catalog". You separately grant it a role on your storage account, typically Storage Blob Data Contributor. Azure now knows: this identity may read andm write this container. Databricks isn't involved yet.
+
+It is a SERVICE identity, not specific to a user. It represents Unity Catalog to Azure Storage — one identity serving the whole metastore.
+
+TWO AUTHORIZATION CHECKS, TWO IDENTITIES:
+  1. UC checks YOUR identity against the grant (e.g. SELECT on the table).
+  2. Azure checks the MANAGED IDENTITY's (proxy for the Unity Catalog) role assignment on the storage.
+This is why an analyst can query a governed table while holding zero Azure permissions — and why revoking their UC grant blocks them even though the managed identity's role assignment never changed.
+
+Why not store the Managed Identity in the Store Credential directly? Why do we need the Access Connector? Because a Managed Identity is a property of a resource. It is not a resource in and of itself. Hence, the resource we attach it to in order to proxy the UC is the Access Controller.
+
+2) Create an Azure Data Lake Storage Gen2 Account
+
+Creating a Cloud Storage Account which will hold all our structured (tables) and unstructured (files) data. Azure Storage includes Azure Blobs (objects), Azure Data Lake Storage Gen2, Azure Files, and Azure Tables. We are using ADLS Gen2
+
+3) Give the Access Connector the role of Storage Blob Contributor
+
+Giving read/write permissions to the Access Connector on the Storage Account via the Access Control (IAM) in the Storage Account
+
+4) Create a Storage Credential in the Databricks UI
+
+A Storage Credential is a Unity Catalog Object that wraps the Access Connector that we've created in Azure. Essentially, it's a double-wrapper around the managed identity. You give the UC the Access Connector's resource ID, and UC now has a governed handle on the cloud identity.
+
+The Storage Container is what allows the Unity Catalog to govern access on the Storage Account. The cloud-native identity wrapper of the credential is an Access Connector on Azure, or an IAM role on AWS.
+
+The Access Connector's managed identity gives Unity Catalog the capability to reach the storage account. That capability is registered as a storage credential in the Unity Catalog. By default, no one has access to any of it. Users are then granted privileges on external locations, and UC checks those grants at query time.
+
+5) Create an External Location
+
+External Location = Path + Storage Credential
+
+The storage container is what makes the UC capable to govern the data on the cloud. The external locations are what the UC enforces checks on in to allow users access to resources.
+
+Storage credential = CAPABILITY (what UC can reach). Not a grant. Default deny.
+External location  = PERMISSION SURFACE (what a user may reach). Grantable.
