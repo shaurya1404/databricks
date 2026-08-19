@@ -242,6 +242,8 @@ Storage Credentials: An authentication and authorization mechanism for accessing
 
 External Location: An object that combines a Storage Credential to an Azure Data Lake Storage (ADLS) Container. So, when a user tires to access an External Location, the UC knows which Storage Credentaisl to use for them
 
+## Configure Unity Catalog to Access the Cloud Storage
+
 1) Create an Access Connector
 
 An Access Connector is an Azure resource that's a wrapper for a Managed Identity. It connects that Managed Identity to the Unity Catalog for the purpose of authentication to access data registered inside the Unity catalog but stored in the Cloud Platform.
