@@ -112,6 +112,8 @@ Filepath format: `/Volumes/catalog/schema/volume`
 
 # Querying Data
 
+Querying structured/semi-structured data from file in the the raw/landing layer to be displayed as a structured table. 
+
 ## Querying JSON Files Using Spark SQL
 
 1) Query Single JSON File
@@ -145,3 +147,49 @@ SELECT input_file_name() AS depr_file_path, -- Deprecated
     *
 FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
 ```
+
+## Registering Data into the Bronze Schema
+
+There are two ways to register the data extracted from the raw layer into the Bronze schema of the Unity Catalog
+1) Create a View
+2) Create a Table
+
+A View is a virtual table created based on the result set of a SELECT Query
+
+Unlike a table, a View is a saved query, not saved data. A table is static - doesn't update with data if the source updates unless done explicitly. A View is dynamic - it runs the SQL query every time the View is called resulting in an updated result set at time of execution.
+
+```sql 
+CREATE OR REPLACE VIEW catalog.schema.view
+AS
+SELECT *
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
+```
+
+## Temporary Views
+
+A View is created within the Unity Catalog. But, Spark also allows us to create Temporary Views for the current session:
+
+1) View: A permanent object registered in the metastore, sitting in the namespace exactly where a table would: `catalog.schema.view`
+2) Temporary View: Lasts the Spark Session. Invisible to other notebooks in the same cluster
+3) Global Temporary Views: Lasts the Spark Application. Visible to every notebook attached to the cluster.
+
+- Spark Session: A notebook attached to a cluster - ends on detatching the notebook or restarting the cluster 
+- Spark Application: A cluster - ends on restarting the cluster
+
+Two notebooks inside one cluster are two sessions in one application.
+
+```sql
+CREATE OR REPLACE TEMPORARY VIEW tv_customers
+AS
+SELECT *, _metadata.file_name AS source_path
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
+```
+
+```sql
+CREATE OR REPLACE GLOBAL TEMPORARY VIEW gtv_customers
+AS
+SELECT *, _metadata.file_name AS source_path
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
+```
+
+***Note***: Global Temporary Views are legacy. Use a Temp View for single notebook access or a persisted view for multi notebook access.
