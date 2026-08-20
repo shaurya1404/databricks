@@ -109,3 +109,39 @@ Filepath format: `/Volumes/catalog/schema/volume`
 ```sql
 %fs ls /Volumes/gizmobox/raw/operational_data
 ```
+
+# Querying Data
+
+## Querying JSON Files Using Spark SQL
+
+1) Query Single JSON File
+
+```sql
+SELECT *
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers/customers_2024_10.json`
+```
+
+2) Querying Multiple JSON Files
+
+```sql
+SELECT *
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers/customers_2024_*.json`
+```
+
+3) Querying All Files in a Folder
+
+```sql
+SELECT *
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
+```
+
+4) Querying Files with Metadata
+
+Enables auditing capabilities to trace data lineage
+
+```sql
+SELECT input_file_name() AS depr_file_path, -- Deprecated
+    _metadata.file_name AS file_path,
+    *
+FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
+```
