@@ -212,13 +212,13 @@ A filesystem abstraction layer over the cloud storage such as Azure Data Lake St
 
 ## Unity Catalog
 
-A unified solution for accessing table objects (structured/semi-structured) as well as files. Allows creation of 1. tables, views, and functions as objects for structured/semi-structured data as well as 2. Volume objects as an abstraction layer over cloud object storage for unstructured data.
+A unified solution for accessing table objects (structured/semi-structured) as well as files (unstructured). Allows creation of (1) tables, views, and functions as objects for structured/semi-structured data as well as (2) Volume objects as an abstraction layer over cloud object storage for unstructured data.
 
 The UC Metastore is the top-level container that lives in the account-level (unlike Hive metastore - workspace-level) and only one can be created per Azure region. It connects all the workspaces within that region.
 
 Catalog is just a logical container within the metastore. Usually one per business level (finance/sales/tech) or one per development environment (dev/staging/prod) 
 
-Schemas (formerly called databases) are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
+Schemas (formerly databases) are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
 
 - Storage Credentials & External Locations: How UC references to cloud storage other than the default Metastore
 - Connections: Refers to read-only access to databases in an external database system suchas as MysSQL or PostgreSQL via Lakehouse Federation
@@ -232,13 +232,13 @@ Managed Volumes: Created via the Unity Catalog which then decides the location o
 
 `DROP VOLUME` deletes the files
 
-External Volumes: A path to the volume already exists in your cloud storage and then we create a Volume to point to it - manages control access but not life cycly of the object.
+External Volumes: A path to the volume already exists in your cloud storage and then we create a Volume to point to it - manages control access but not life cycle of the object.
 
 `DROP VOLUME` removes only the registration — the files stay exactly where they are
 
-**External vs Managed Tables**: The same distinction as Volumes. Managed tables only allow Delat file format whereas, external tables can be Delta, Parquet, CSV, JSON, etc.
+**External vs Managed Tables**: The same distinction as Volumes. Managed tables only allow Delta file format whereas, external tables can be Delta, Parquet, CSV, JSON, etc.
 
-Storage Credentials: An authentication and authorization mechanism for accessing data in the cloud storage. Can be created using Managed Principles which is a way to autheticate and authorize Azure resources without needing to manage credentials manually.
+Storage Credentials: An authentication and authorization mechanism for accessing data in the cloud storage. Created on top of a Managed Identity which is a way to autheticate and authorize Azure resources without needing to manage credentials manually.
 
 External Location: An object that combines a Storage Credential to an Azure Data Lake Storage (ADLS) Container. So, when a user tires to access an External Location, the UC knows which Storage Credentaisl to use for them
 
@@ -283,3 +283,10 @@ The storage container is what makes the UC capable to govern the data on the clo
 
 Storage credential = CAPABILITY (what UC can reach). Not a grant. Default deny.
 External location  = PERMISSION SURFACE (what a user may reach). Grantable.
+
+```sql
+CREATE EXTERNAL LOCATION IF NOT EXISTS databricks_learning_ext_adl_gizmobox
+    URL 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/'
+    WITH (STORAGE CREDENTIAL databricks_learning_ext_sc)
+    COMMENT 'External Location for GizmoBox'
+```

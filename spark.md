@@ -216,7 +216,7 @@ Multi-line Complex JSON: [
     {"id":2,"profile":{"name":"Bob","contact":{"email":"bob@x.com"}},"tags":["standard"]}
 ]
 
-## Querying Orders File - Complex JSON
+## Querying Orders Folder - Complex JSON
 
 The Orders table has data inconsistencies such as type mismatches in some of the records. Hence, the JSON parser fails to qualify all the rows and returns the corrupted rows in the `_corrupt_record` column while leaving NULL in the actual columns.
 
@@ -241,9 +241,63 @@ When processing Binary File formats, every file becomes one row in a four-column
 - length: `long`: Size in bytes
 - content: `binary`. The file's raw bytes
 
+## Querying Memberships Folder - PNG
+
 ```sql
 CREATE OR REPLACE VIEW gizmobox.bronze.v_memberships
 AS
 SELECT *
 FROM binaryFile.`/Volumes/gizmobox/raw/operational_data/memberships/*/*.png` -- Query all PNG files in all the folders of the membership folder
+```
+
+## CSV Files 
+
+The straight-forward `SELECT * FROM <file_format>.<file_path>` we've been using until now is good for default parsing behaviour for files such as ',' as the delimiter and having no header in CSV file; but, it can't take arguments.
+
+However, the Addresses file uses tab (`\t`) as the delimiter to delineate columns and has a header. Hence, the minimal SELECT statement incorrectly parses the data. Hence, there are two ways of resolving this:
+
+1) read_files()
+
+read_files() is a table-valued function, i.e, a function that produces a table and, as a corllary, is used in the FROM clause. It reads files from the cloud storage while also allowing arguments.
+
+**Syntax**: `read_files(path, [, option_key => option_value] [...])`
+
+### Querying Addresses Folder - CSV
+
+```sql
+CREATE OR REPLACE VIEW gizmobox.bronze.v_addresses
+AS
+SELECT *
+FROM read_files(``)
+```
+
+2) External Tables
+
+Unlike 'operational_data', a UC Volume has not been created on 'external' cirectory but it can still be accessed directly via the ABFSS protocol.
+
+An External Table is a UC object that's useful when only reading data from an external source. It doesn't move or copy the data itself but just stores metadata describing the data in the metastore - hence, dropping the table only deletes the metadata without touching the actual data.
+
+An External Table and a Volume cannot co-exist on the same external resource since we would then have two governance objects governing the same data leading to contradictions. The External Table can only be created if an External Location has already been created on the path that the External Table points to since the Storage Credential is stored in the External Location which the External Table needs to access the path.
+
+### Creating An External Table on Payments
+
+```sql
+CREATE TABLE IF NOT EXISTS gizmobox.bronze.payments(
+    payment_id INT,
+    order_id INT,
+    payment_timestamp TIMESTAMP,
+    payment_status STRING,
+    payment_method STRING
+)
+USING CSV
+OPTIONS (
+    delimter=','
+)
+LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/raw/external/payments' -- Specifying the location makes it External
+```
+
+When data gets added/updated/deleted in the cloud directory/file that the External table points to, Databricks doesn't automatically update the data until the following command is run:
+
+```sql
+REFRESH TABLE gizmobox.bronze.payments
 ```
