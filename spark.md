@@ -228,3 +228,22 @@ AS
 SELECT *
 FROM text.`/Volumes/gizmobox/raw/operational_data/orders`
 ```
+
+## Binary File Format
+
+A Binary File Format is used to process unstructured data in Databricks such as PDFs, PNGs, MP3s, MP4s, or any other file format
+
+It is not a conventional file format like Parquet or CSV. Spark knows what a CSV is and how to handle it. A Binary File is a conversion of any file format into raw bytes without interpreting them - pure storage.
+
+When processing Binary File formats, every file becomes one row in a four-column schema:
+- path: `string`. Full path to the file
+- modificationTime: `timestamp`. Last modified
+- length: `long`: Size in bytes
+- content: `binary`. The file's raw bytes
+
+```sql
+CREATE OR REPLACE VIEW gizmobox.bronze.v_memberships
+AS
+SELECT *
+FROM binaryFile.`/Volumes/gizmobox/raw/operational_data/memberships/*/*.png` -- Query all PNG files in all the folders of the membership folder
+```
