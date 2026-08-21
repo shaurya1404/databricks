@@ -20,7 +20,7 @@ Refunds - Azure SQL Database
     https://acmedata.blob.core.windows.net/                      ← Blob endpoint
     abfss://container_name@storage_name.dfs.core.windows.net/    ← Azure Blob File System Secure URL
 
-- **Containers**: A top-level grouping of BLOBs inside a Storage Account. Analogous to a Bucket in Amazon S3. You create containers like raw, bronze, silver, gold, sales, marketing, etc. It can contain nested subdirectories
+- **Containers**: A top-level grouping of BLOBs inside a Storage Account. Analogous to a Bucket in Amazon S3. You create containers like raw, bronze, silver, gold, sales, marketing, etc. It can contain nested sub-directories
 
 ## Query to Create External Location
 
@@ -76,13 +76,13 @@ CREATE SCHEMA IF NOT EXISTS raw
     MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/raw';
 CREATE SCHEMA IF NOT EXISTS bronze
     COMMENT 'This is the schema for the Bronze layer in GizmoBox'
-    MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/raw';
+    MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/bronze';
 CREATE SCHEMA IF NOT EXISTS silver
     COMMENT 'This is the schema for the Silver layer in GizmoBox'
-    MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/raw';
+    MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/silver';
 CREATE SCHEMA IF NOT EXISTS gold
     COMMENT 'This is the schema for the Gold layer in GizmoBox'
-    MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/raw'
+    MANAGED LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/gold'
 ```
 
 If Managed Location is not specified, the UC will check to see if a Managed Location has been specific for the Catalog of this Schema. If yes, all objects will be created directly inside there (the gizmobox container in this case). If not, back to the Metastore's root storage
@@ -193,3 +193,38 @@ FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
 ```
 
 ***Note***: Global Temporary Views are legacy. Use a Temp View for single notebook access or a persisted view for multi notebook access.
+
+## Complex JSONs
+
+- Complex JSONs: The JSON objects within the file contain nested structures rather than just scalar values
+- Single-line JSONs (Default): Also called JSONL. Each JSON object occupies a single-line. No commas. No wrapping array
+
+Single-line JSON:
+    {"id":1,"name":"Alice","city":"SF"}
+    {"id":2,"name":"Bob","city":"NYC"}
+
+Single-line Complex JSON:
+    {"id":1,"user":{"name":"Alice","email":"alice@x.com"},"city":"SF","tags":["vip","beta"]}
+    {"id":2,"user":{"name":"Bob","email":"bob@x.com"},"city":"NYC","tags":["trial"]}
+
+Multi-line JSON: [
+    {"id":1,"name":"Alice","city":"SF"},
+    {"id":2,"name":"Bob","city":"NYC"}
+]
+Multi-line Complex JSON: [
+    {"id":1,"profile":{"name":"Alice","contact":{"email":"alice@x.com"}},"tags":["vip","beta"]},
+    {"id":2,"profile":{"name":"Bob","contact":{"email":"bob@x.com"}},"tags":["standard"]}
+]
+
+## Querying Orders File - Complex JSON
+
+The Orders table has data inconsistencies such as type mismatches in some of the records. Hence, the JSON parser fails to qualify all the rows and returns the corrupted rows in the `_corrupt_record` column while leaving NULL in the actual columns.
+
+Hence, to avoid data loss, loading the file as a 'text' file format into the Bronze layer. We will then fix the issues and then load it using the JSON parser into the Silver layer
+
+```sql
+CREATE OR REPLACE VIEW gizmobox.bronze.v_orders
+AS
+SELECT *
+FROM text.`/Volumes/gizmobox/raw/operational_data/orders`
+```
