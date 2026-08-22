@@ -154,7 +154,7 @@ There are two ways to register the data extracted from the raw layer into the Br
 1) Create a View
 2) Create a Table
 
-A View is a virtual table created based on the result set of a SELECT Query
+A View is virtually a table created based on the result set of a SELECT Query
 
 Unlike a table, a View is a saved query, not saved data. A table is static - doesn't update with data if the source updates unless done explicitly. A View is dynamic - it runs the SQL query every time the View is called resulting in an updated result set at time of execution.
 
@@ -268,12 +268,12 @@ read_files() is a table-valued function, i.e, a function that produces a table a
 CREATE OR REPLACE VIEW gizmobox.bronze.v_addresses
 AS
 SELECT *
-FROM read_files(``)
+FROM read_files('/Volumes/gizmobox/raw/operational_data/addresses', format => 'csv', delimiter => '\t', header => true)
 ```
 
 2) External Tables
 
-Unlike 'operational_data', a UC Volume has not been created on 'external' cirectory but it can still be accessed directly via the ABFSS protocol.
+Unlike 'operational_data', a UC Volume has not been created on the 'external' directory but it can still be accessed directly via the ABFSS protocol.
 
 An External Table is a UC object that's useful when only reading data from an external source. It doesn't move or copy the data itself but just stores metadata describing the data in the metastore - hence, dropping the table only deletes the metadata without touching the actual data.
 
@@ -301,3 +301,50 @@ When data gets added/updated/deleted in the cloud directory/file that the Extern
 ```sql
 REFRESH TABLE gizmobox.bronze.payments
 ```
+
+## Lakehouse Federation
+
+Lakehouse Federation is a capability in Databricks that allows you to access and govern data stored outside the Lakehouse without having to move or copy it into the Lakehouse.
+
+In many organizations, data lives outside the data lakehouse in external databases (MySQL, PostgreSQL, SQL Server, etc.) or external catalogs (Snowflake, AWS Glue, Hive Metastore). The Lakehouse Federation connects to these external sources and allows data access and governance as if the data was a part of the Databricks Lakehouse itself.
+
+Federating (uniting for shared access) data from an external database is called a **Query Federation**
+Federating data from an external catalog is called a **Catalog Federation**
+
+1) Query Federation
+
+Used for External Databases such as MySQL, PostgreSQL, and SQL Server
+
+Connection: Directly to External Database via JDBC
+Point of Execution: Query executes in the external database - performance and cost of query is contingent on the external database
+Distributed Compute: External database may not running query using a distributed compute engine like Spark
+
+2) Catalog Federation
+
+A "Catalog" from the perspective of the industry is any system that knows what tables exists, what the schema of the table is, and where it is stored. Unity Catalog is a Catalog. Hive Metastore is a Catalog. Snowflake has itsown. AWS Glue has its own.
+
+Connection: To an external catalog
+Point of Execution: Query executes in the databricks compute itself - cost-effective and performance-optimized
+
+Both: CREATE CONNECTION → CREATE FOREIGN CATALOG. No data copied. UC-governed. Read-only. Three-namespace: `foreign_cat.schema.table`
+Both allow joining the external data with the Lakehouse data via the query
+Both give you one namespace (catalog) and one governance model over data you never moved — what differs is only where the query executes.
+
+## Lakehouse Federation Implementation
+
+1) Query Federation
+
+- Unity Catalog must be enabled.
+- Create Connection (JDBC + Credentials)
+- Create Foreign Catalog
+- Grant Privileges
+- Run Queries (pushed to external database)
+
+2) Catalog Federation
+
+- Unity Catalog must be enabled.
+- Create Connection (JDBC + Credentials)
+- Create Storage Credential + External Location
+- Create Foreign Catalog
+- Grant Privileges
+- Run Queries (executed in Databricks compute directly on the foreign object storage)
