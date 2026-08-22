@@ -311,22 +311,24 @@ In many organizations, data lives outside the data lakehouse in external databas
 Federating (uniting for shared access) data from an external database is called a **Query Federation**
 Federating data from an external catalog is called a **Catalog Federation**
 
+External tables and Catalog Federation both read storage directly and compute locally — they differ only in whether we or a foreign catalog owns the data. In case of Query Federations, we send the query via JDBC but the compute takes place in the database itself
+
 1) Query Federation
 
-Used for External Databases such as MySQL, PostgreSQL, and SQL Server
+Used for External Databases such as MySQL, PostgreSQL, and SQL Server (Azure SQL)
 
-Connection: Directly to External Database via JDBC
-Point of Execution: Query executes in the external database - performance and cost of query is contingent on the external database
+Connection: To External Database via JDBC
+Point of Execution: Query is optimized in our Spark engine and executed in the database's engine - partial dependence on database for cost and performance
 Distributed Compute: External database may not running query using a distributed compute engine like Spark
 
 2) Catalog Federation
 
 A "Catalog" from the perspective of the industry is any system that knows what tables exists, what the schema of the table is, and where it is stored. Unity Catalog is a Catalog. Hive Metastore is a Catalog. Snowflake has itsown. AWS Glue has its own.
 
-Connection: To an external catalog
+Connection: Directly to Storage Object via External Catalog
 Point of Execution: Query executes in the databricks compute itself - cost-effective and performance-optimized
 
-Both: CREATE CONNECTION → CREATE FOREIGN CATALOG. No data copied. UC-governed. Read-only. Three-namespace: `foreign_cat.schema.table`
+Both: CREATE CONNECTION → CREATE FOREIGN CATALOG. No data copied. UC-governed. Three-namespace: `foreign_cat.schema.table`
 Both allow joining the external data with the Lakehouse data via the query
 Both give you one namespace (catalog) and one governance model over data you never moved — what differs is only where the query executes.
 
@@ -334,17 +336,38 @@ Both give you one namespace (catalog) and one governance model over data you nev
 
 1) Query Federation
 
-- Unity Catalog must be enabled.
-- Create Connection (JDBC + Credentials)
-- Create Foreign Catalog
+Pre-requisite: Unity Catalog must be enabled
+- Create Connection (For the server)
+- Create Foreign Catalog (For the database)
 - Grant Privileges
 - Run Queries (pushed to external database)
 
 2) Catalog Federation
 
-- Unity Catalog must be enabled.
+Pre-requisite: Unity Catalog must be enabled
 - Create Connection (JDBC + Credentials)
 - Create Storage Credential + External Location
 - Create Foreign Catalog
 - Grant Privileges
 - Run Queries (executed in Databricks compute directly on the foreign object storage)
+
+### Querying Refunds Table from Azure SQL via Query Federation
+
+1) Create Connection
+
+```sql
+CREATE CONNECTION asql_gizmobox_db_conn_sql TYPE sqlserver
+OPTIONS (
+  host 'gizmobox-dbsrvr.database.windows.net', -- Connection to the Server
+  port '1433',
+  user 'gizmoboxadmin',
+  password 'Gizmobox@123'
+)
+```
+
+2) Create Foreign Catalog
+
+```sql
+CREATE FOREIGN CATALOG IF NOT EXISTS asl_gizmobox_db_catalog_sql USING CONNECTION asql_gizmobox_db_conn_sql
+OPTIONS (database 'gizmobox-db'); -- Catalog to the Database in the Server
+```
