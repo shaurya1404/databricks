@@ -226,21 +226,25 @@ Schemas (formerly databases) are also logical containers within catalogs. Each s
 
 Databricks allows 100% backward compatability with the Hive Metastore in the form of a reserved pseudo-catalog called `hive_metastore`
 
-### Managed vs External
+### Volume vs Table AND Managed vs External
 
-Managed Volumes: Created via the Unity Catalog which then decides the location of where it's stored in the cloud platform storage - manages access control as well as lifecycle of the object.
+**Volume vs Table**: A Volume is the UC Catalog object that governs access to the path in the cloud. It doesn't store any metadata about the file - just hands you the bytes the file contains. The schema is inferred at read-time. Works with any file such as CSV, JSON, Parquet, images, PDFs. Hence, usually used for non-tabular data
+
+A Table is the UC Catalog object that governs access to the path in the cloud aas well as stores metadata specific to tables such as schema and column types. This allows more fine-grained governance over the rows and columns in the table sch as RLS and column masking.
+
+**Managed Volumes**: Created via the Unity Catalog which then decides the location of where it's stored in the cloud platform storage - manages access control as well as lifecycle of the object.
 
 `DROP VOLUME` deletes the files
 
-External Volumes: A path to the volume already exists in your cloud storage and then we create a Volume to point to it - manages access control but not life cycle of the object.
+**External Volumes**: A path to the volume already exists in your cloud storage and then we create a Volume to point to it - manages access control but not life cycle of the object.
 
 `DROP VOLUME` removes only the registration — the files stay exactly where they are
 
-**External vs Managed Tables**: The same distinction as Volumes. Managed tables only allow Delta file format whereas, external tables can be Delta, Parquet, CSV, JSON, etc.
+**Managed vs External Tables**: The same distinction as Volumes. Managed tables only allow Delta file format whereas, external tables can be Delta, Parquet, CSV, JSON, etc.
 
-Storage Credentials: An authentication and authorization mechanism for accessing data in the cloud storage. Created on top of a Managed Identity which is a way to autheticate and authorize Azure resources without needing to manage credentials manually.
+- Storage Credentials: An authentication and authorization mechanism for accessing data in the cloud storage. Created on top of a Managed Identity which is a way to autheticate and authorize Azure resources without needing to manage credentials manually.
 
-External Location: An object that combines a Storage Credential to an Azure Data Lake Storage (ADLS) Container. So, when a user tries to access an the specific path, the UC knows which Storage Credential to use for it
+- External Location: An object that combines a Storage Credential to an Azure Data Lake Storage (ADLS) Container. So, when a user tries to access an the specific path, the UC knows which Storage Credential to use for it
 
 ## Configure Unity Catalog to Access the Cloud Storage
 

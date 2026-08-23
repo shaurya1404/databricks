@@ -318,7 +318,7 @@ External tables and Catalog Federation both read storage directly and compute lo
 Used for External Databases such as MySQL, PostgreSQL, and SQL Server (Azure SQL)
 
 Connection: To External Database via JDBC
-Point of Execution: Query is optimized in our Spark engine and executed in the database's engine - partial dependence on database for cost and performance
+Point of Execution: Query is optimized in our Spark engine but executed in the database's engine - partial dependence on database for cost and performance
 Distributed Compute: External database may not running query using a distributed compute engine like Spark
 
 2) Catalog Federation
@@ -379,14 +379,14 @@ OPTIONS (database 'gizmobox-db'); -- Catalog to the Database in the Server
 `dbutils` cannot be executed in a SQL cell. The `dbutils.data.summarize()` takes a DataFrame as its arguement, not the table name directly
 
 ```python
-df = spark.read.table('gizmobox.bronze.v_customers')
+df = spark.table('gizmobox.bronze.v_customers')
 dbutils.data.summarize(df)
 ```
 
 2) Count NULLs in Customers Data
 
 ```sql
-SELECT COUNT(*), COUNT(customer_id)
+SELECT COUNT(*), COUNT(customer_id), COUNT(email), COUNT(telephone)
 FROM gizmobox.bronze.v_customers
 ```
 
@@ -414,3 +414,13 @@ HAVING COUNT(*) > 1
 ```
 
 ## Transform Customers Data
+
+1. - 4. Check notebook 'Transofrm Customer Data' for removing NULL, deduping, and casting transofrmation via temp views
+
+5) Create Delta (Managed) Table In Silver Schema
+
+```sql
+CREATE TABLE gizmobox.silver.customers AS 
+SELECT *
+FROM casted
+```
