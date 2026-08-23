@@ -371,3 +371,46 @@ OPTIONS (
 CREATE FOREIGN CATALOG IF NOT EXISTS asl_gizmobox_db_catalog_sql USING CONNECTION asql_gizmobox_db_conn_sql
 OPTIONS (database 'gizmobox-db'); -- Catalog to the Database in the Server
 ```
+
+# Transform Data
+
+1) Data Profiling using dbutils
+
+`dbutils` cannot be executed in a SQL cell. The `dbutils.data.summarize()` takes a DataFrame as its arguement, not the table name directly
+
+```python
+df = spark.read.table('gizmobox.bronze.v_customers')
+dbutils.data.summarize(df)
+```
+
+2) Count NULLs in Customers Data
+
+```sql
+SELECT COUNT(*), COUNT(customer_id)
+FROM gizmobox.bronze.v_customers
+```
+
+OR
+
+```sql
+SELECT COUNT_IF(customer_id IS NULL), COUNT_IF(email IS NULL), COUNT_IF(telephone IS NULL)
+FROM gizmobox.bronze.v_customers
+```
+
+3) Count Exact Duplicates
+
+```sql
+SELECT COUNT(customer_id), COUNT (DISTINCT customer_id)
+FROM gizmobox.bronze.v_customers
+```
+
+4) Find Records with Duplicates
+
+```sql
+SELECT customer_id, COUNT(*) AS duplicate_count
+FROM gizmobox.bronze.v_customers
+GROUP BY customer_id
+HAVING COUNT(*) > 1
+```
+
+## Transform Customers Data
