@@ -415,7 +415,15 @@ HAVING COUNT(*) > 1
 
 ## Transform Customers Data
 
-1. - 4. Check notebook 'Transofrm Customer Data' for removing NULL, deduping, and casting transofrmation via temp views
+1. - 4. Check notebook 'Transofrm Customer Data' for removing NULL, deduping, and casting transformation via temp views
+
+4) Create Temp View to CAST Columns to Correct Data Types
+
+```sql
+CREATE OR REPLACE TEMPORARY VIEW casted AS
+SELECT CAST(created_timestamp AS timestamp), customer_id, customer_name, CAST(date_of_birth AS date), email, CAST(member_since AS date), telephone, source_path
+FROM deduped
+```
 
 5) Create Delta (Managed) Table In Silver Schema
 
@@ -424,3 +432,29 @@ CREATE TABLE gizmobox.silver.customers AS
 SELECT *
 FROM casted
 ```
+
+## Transform Payments Data
+
+1) Using date_format() to Extract Date and Time
+
+```sql
+CREATE OR REPLACE TEMP VIEW date_formatted AS
+SELECT payment_id, order_id, CAST(date_format(payment_timestamp, 'yyyy-MM-dd') AS DATE) AS payment_date, date_format(payment_timestamp, 'HH:mm:ss') AS payment_time, payment_status, payment_method
+FROM gizmobox.bronze.payments
+```
+
+2) Using CASE_WHEN to Normalize Into Descriptive Values
+
+```sql
+CREATE TEMPORARY VIEW normalized AS 
+SELECT payment_id, order_id, payment_date, payment_time,
+    CASE payment_status
+        WHEN 1 THEN 'Success'
+        WHEN 2 THEN 'Pending'
+        WHEN 3 THEN 'Cancelled'
+        ELSE 'Failed'
+    END AS payment_status, payment_method
+FROM date_formatted
+```
+
+3) 
