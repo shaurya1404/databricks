@@ -415,7 +415,7 @@ HAVING COUNT(*) > 1
 
 ## Transform Customers Data
 
-1. - 4. Check notebook 'Transofrm Customer Data' for removing NULL, deduping, and casting transformation via temp views
+1. - 4. Check notebook 'Tranform Customer Data' for removing NULLs, deduping, and casting transformation via temp views
 
 4) Create Temp View to CAST Columns to Correct Data Types
 
@@ -460,14 +460,19 @@ FROM date_formatted
 ## Transform Refunds Data
 
 The Address data has two rows for each customer_id: `shipping` address_type and `billing` address_type.
-The PIVOT clause turns specififc row values into columns
+The PIVOT clause turns multiple rows into one row with multiple columns
 
 ### Pivot Clause
 
 ```sql
 table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (row_values))
 ```
-PIVOT syntax: PIVOT(`aggregate these` FOR `column whose values will be headers` IN `which values you want headers for`)
+**Syntax**: PIVOT(
+    `aggregate these` 
+    FOR `column whose values will be headers` IN `which values you want headers for`
+)
+
+**Summary**: PIVOT = GROUP BY + FILTER + AGGREGATION
 
 In a PIVOT clause, all rows are first implictly GROUPED BY column values in the table_reference (FROM clause) that are neither included in aggregate_function_columns nor in pivot_columns. Second, each unique value in the list of STRING LITERALS in row_values acts as a FILTER on the rows after the implicit GROUP BY. Last, an aggregate function value is calculated for each of the columns in the aggregate_function_columns list
 
@@ -489,7 +494,46 @@ PIVOT (
     FOR address_type IN ('shipping', 'billing')
 )
 ```
+PIVOT working in-order:
 
-GROUP BY: customer_id
-FILTER: address_type (`shipping`, `billing`)
-AGGREGATED COLUMNS: address_line_1, city, state, postcode
+1) GROUP BY: customer_id
+2) FILTER: address_type (`shipping`, `billing`)
+3) AGGREGATED COLUMNS: address_line_1, city, state, postcode
+
+## Reg Exp
+
+### Regex Token Reference
+
+| Token | Meaning | Example match |
+|---|---|---|
+| `\w`  | Any **word** character: letter, digit, or underscore — same as `[A-Za-z0-9_]` | `a`, `7`, `_` |
+| `\d`  | Any **digit** — same as `[0-9]`                                               | `4` |
+| `\s`  | Any **whitespace**: space, tab, newline, carriage return                      | space, `\t` |
+| `\W`  | **Not** a word character (inverse of `\w`)                                    | `-`, `@`, space |
+| `\D`  | **Not** a digit (inverse of `\d`)                                             | `a`, `-` |
+| `\S`  | **Not** whitespace (inverse of `\s`)                                          | `a`, `4`, `@` |
+| `\.`  | A **literal** period — escaped, because a bare `.` means "any character"      | the `.` in `file.csv` |
+| `[]`  | **Character class** — match any *one* character from the set inside           | `[aeiou]` matches one vowel |
+| `{}`  | **Quantifier** — exact or ranged repeat count of the preceding atom           | `\d{4}` matches `2024` |
+| `()`  | **Group + capture** — bind a chunk together and save it to a numbered slot    | `(\d{4})` becomes group 1 |
+| `+`   | **One or more** of the preceding atom (greedy)                                | `\d+` matches `2024` |
+| `*`   | **Zero or more** of the preceding atom (greedy)                               | `a*` matches `""` or `aaa` |
+| `?`   | **Zero or one** — makes the preceding atom optional                           | `colou?r` matches both spellings |
+| `^`   | **Start-of-string anchor** — matches a position, consumes nothing             | `^abc` |
+| `$`   | **End-of-string anchor** — matches a position, consumes nothing               | `abc$` |
+
+### Notes
+
+**Capital means negation.** `\w`/`\W`, `\d`/`\D`, `\s`/`\S` — the uppercase form is always the complement of the lowercase one.
+
+**Context flips meanings.**
+- Inside `[]`, a leading `^` *negates* the class: `[^0-9]` means "not a digit."
+- Inside `[]`, most metacharacters lose their power: `[.+*]` matches those three literal characters.
+- In a `regexp_replace` replacement string, `$` is a backreference (`$1`, `$2`), not an anchor.
+
+**Quantifiers bind to one atom.** `ab{3}` is one `a` then three `b`s. Use a group for multi-character repeats: `(ab){3}`.
+
+### Escaping in Spark
+
+A single `\` in a Spark SQL string literal is an escape marker, not data. Unrecognized sequences are silently stripped: `\d` becomes just `d`
+So, we use `\\d` since one of the `\` is consumed by the SQL Parser
