@@ -509,10 +509,11 @@ PIVOT working in-order:
 | `\w`  | Any **word** character: letter, digit, or underscore — same as `[A-Za-z0-9_]` | `a`, `7`, `_` |
 | `\d`  | Any **digit** — same as `[0-9]`                                               | `4` |
 | `\s`  | Any **whitespace**: space, tab, newline, carriage return                      | space, `\t` |
+| `.`   | Any **character** except newline                                              | the `.` in `file.csv` |
+| `\.`  | A **literal** period — escaped, because a bare `.` means "any character"      | the `.` in `file.csv` |
 | `\W`  | **Not** a word character (inverse of `\w`)                                    | `-`, `@`, space |
 | `\D`  | **Not** a digit (inverse of `\d`)                                             | `a`, `-` |
 | `\S`  | **Not** whitespace (inverse of `\s`)                                          | `a`, `4`, `@` |
-| `\.`  | A **literal** period — escaped, because a bare `.` means "any character"      | the `.` in `file.csv` |
 | `[]`  | **Character class** — match any *one* character from the set inside           | `[aeiou]` matches one vowel |
 | `{}`  | **Quantifier** — exact or ranged repeat count of the preceding atom           | `\d{4}` matches `2024` |
 | `()`  | **Group + capture** — bind a chunk together and save it to a numbered slot    | `(\d{4})` becomes group 1 |
@@ -537,3 +538,29 @@ PIVOT working in-order:
 
 A single `\` in a Spark SQL string literal is an escape marker, not data. Unrecognized sequences are silently stripped: `\d` becomes just `d`
 So, we use `\\d` since one of the `\` is consumed by the SQL Parser
+
+## Transform Orders Data
+
+1) Pre-process the JSON String by Fixing Data Quality Issues
+
+```sql
+SELECT  value,
+        regexp_replace(value, '"order_date": (\\d{4}-\\d{2}-\\d{2})', '"order_date": "\$1"') AS corrected_value
+FROM gizmobox.bronze.v_orders
+```
+
+2) Converting JSON String to JSON Object
+
+`schema_of_json(jsonStr [, options] )`: Infers the schema of a JSON String column
+`from_json(jsonStr, 'schema' [, options])`: Deserializes a JSON String column into a JSON object using a passed schema
+
+```sql
+SELECT schema_of_json(fixed_value) AS schema_orders, fixed_value
+FROM temp_orders
+LIMIT 1
+```
+
+```sql
+SELECT from_json(fixed_value, 'order_of_schema_here') AS json_value
+FROM temp_orders
+```
