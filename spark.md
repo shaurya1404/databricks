@@ -457,4 +457,39 @@ SELECT payment_id, order_id, payment_date, payment_time,
 FROM date_formatted
 ```
 
-3) 
+## Transform Refunds Data
+
+The Address data has two rows for each customer_id: `shipping` address_type and `billing` address_type.
+The PIVOT clause turns specififc row values into columns
+
+### Pivot Clause
+
+```sql
+table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (row_values))
+```
+PIVOT syntax: PIVOT(`aggregate these` FOR `column whose values will be headers` IN `which values you want headers for`)
+
+In a PIVOT clause, all rows are first implictly GROUPED BY column values in the table_reference (FROM clause) that are neither included in aggregate_function_columns nor in pivot_columns. Second, each unique value in the list of STRING LITERALS in row_values acts as a FILTER on the rows after the implicit GROUP BY. Last, an aggregate function value is calculated for each of the columns in the aggregate_function_columns list
+
+total_columns = `literals in row_values` x `aggregated columns` + `grouped by columns`
+
+### Transform address_type Into Columns Via PIVOT
+
+```sql
+SELECT *
+FROM (
+    SELECT customer_id, address_type, address_line_1, city, state, postcode
+    FROM gizmobox.bronze.v_addresses
+)
+PIVOT (
+    MAX(address_line_1) AS address_line_1,
+    MAX(city) AS city,
+    MAX(state) AS state,
+    MAX(postcode) AS postcode
+    FOR address_type IN ('shipping', 'billing')
+)
+```
+
+GROUP BY: customer_id
+FILTER: address_type (`shipping`, `billing`)
+AGGREGATED COLUMNS: address_line_1, city, state, postcode
