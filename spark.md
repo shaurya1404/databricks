@@ -549,7 +549,7 @@ SELECT  value,
 FROM gizmobox.bronze.v_orders
 ```
 
-2) Converting JSON String to JSON Object
+2) Converting JSON String to JSON Object (De-serialization)
 
 `schema_of_json(jsonStr [, options] )`: Infers the schema of a JSON String column
 `from_json(jsonStr, 'schema' [, options])`: Deserializes a JSON String column into a JSON object using a passed schema
@@ -563,4 +563,53 @@ LIMIT 1
 ```sql
 SELECT from_json(fixed_value, 'order_of_schema_here') AS json_value
 FROM temp_orders
+```
+
+3) Access JSON Object Elements & Dedup 'Items' Array
+
+`array_distinct(col)` removes duplicate values from an array
+
+```sql
+SELECT json_value.order_id,
+       json_value.order_status,
+       json_value.payment_method,
+       json_value.total_amount,
+       json_value.transaction_timestamp,
+       json_value.customer_id,
+       array_distinct(json_value.items) -- Order ID: 29 has been deduped
+FROM gizmobox.silver.orders_json
+ORDER BY json_value.order_id
+```
+
+4) Explode Items Array
+
+Many of the rows have two or more items in the array. We want one row for each item
+
+`explode(col)`: Given an array column, it explodes one row into multiple - one row for each element while copying the rest of the column values
+
+```sql
+SELECT json_value.order_id,
+       json_value.order_status,
+       json_value.payment_method,
+       json_value.total_amount,
+       json_value.transaction_timestamp,
+       json_value.customer_id,
+       explode(array_distinct(json_value.items)) AS item
+FROM gizmobox.silver.orders_json
+ORDER BY json_value.order_id
+```
+5) Convert JSON Object Keys Into Columns for Easier Access
+
+```sql
+CREATE OR REPLACE TEMPORARY VIEW tv_item_split
+AS
+SELECT order_id, order_status, payment_method, total_amount, transaction_timestamp, customer_id,
+    item.item_id, 
+    item.name, 
+    item.price, 
+    item.quantity, 
+    item.category, 
+    item.details.brand, 
+    item.details.color
+FROM tv_exploded
 ```
