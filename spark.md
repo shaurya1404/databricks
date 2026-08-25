@@ -613,3 +613,26 @@ SELECT order_id, order_status, payment_method, total_amount, transaction_timesta
     item.details.color
 FROM tv_exploded
 ```
+
+## User Defined Functions
+
+UDFs allow us to modularize custom business logic
+Like tables and views, they exist as Objects in the UC
+They enable us to follow the DRY principle as they can be defined once and used across many notebooks
+
+```sql
+CREATE OR REPLACE FUNCTION (param_name data_type)
+RETURNS return_type
+RETURN expression
+```
+
+```sql
+CREATE OR REPLACE FUNCTION gizmobox.default.payment_status(code INTEGER)
+RETURNS STRING
+RETURN CASE code
+        WHEN 1 THEN 'Success'
+        WHEN 2 THEN 'Pending'
+        WHEN 3 THEN 'Cancelled'
+        ELSE 'Failed'
+    END
+```
