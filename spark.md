@@ -636,3 +636,36 @@ RETURN CASE code
         ELSE 'Failed'
     END
 ```
+
+## Higher Order Functions
+
+A Higher Order Function (HOF) is one that operates on non-primitve data types such as array and maps.
+It takes another function as an argument and returns an array or map
+
+1) Commonly Used Higher Order Array Functions
+- TRANSFORM
+- FILTER
+- EXISTS
+- AGGREGATE
+
+```sql
+-- Array Syntax
+function_name(array_column, lambda_expression)
+lambda_expression: element -> expression
+```
+
+```sql
+-- Aggregate Syntax
+function_name(array_column, init_value, (accumulator, element) -> expression)
+```
+
+2) Commonly Used Higher Order Column Functions
+- TRANSFORM_KEY
+- TRANSFORM_VALUE
+- MAP_FILTER
+
+```sql
+-- Masp Syntax
+function_name(map_column, lambda_expression)
+lambda_expression: (key, value) -> expression
+```
