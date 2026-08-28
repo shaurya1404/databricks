@@ -465,7 +465,7 @@ The PIVOT clause turns multiple rows into one row with multiple columns
 ### Pivot Clause
 
 ```sql
-table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (row_values))
+table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (header_values))
 ```
 **Syntax**: PIVOT(
     `aggregate these` 
@@ -477,6 +477,19 @@ table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (row_valu
 In a PIVOT clause, all rows are first implictly GROUPED BY column values in the table_reference (FROM clause) that are neither included in aggregate_function_columns nor in pivot_columns. Second, each unique value in the list of STRING LITERALS in row_values acts as a FILTER on the rows after the implicit GROUP BY. Last, an aggregate function value is calculated for each of the columns in the aggregate_function_columns list
 
 total_columns = `literals in row_values` x `aggregated columns` + `grouped by columns`
+
+```sql
+SELECT * FROM person
+PIVOT (
+  SUM(age) AS a, AVG(class) AS c
+  FOR (name, age) IN (
+    ('John', 30) AS c1,
+    ('Mike', 40) AS c2
+  )
+);
+```
+
+**Result**: With aliases, you get clean output columns: c1_a, c1_c, c2_a, c2_c
 
 ### Transform address_type Into Columns Via PIVOT
 
@@ -665,7 +678,7 @@ function_name(array_column, init_value, (accumulator, element) -> expression)
 - MAP_FILTER
 
 ```sql
--- Masp Syntax
+-- Map Syntax
 function_name(map_column, lambda_expression)
 lambda_expression: (key, value) -> expression
 ```
