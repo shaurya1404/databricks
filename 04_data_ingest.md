@@ -6,10 +6,10 @@ Until now, we've used the DataFrame Reader and DataStream Reader APIs to ingest 
 
 The Data Ingestion tools in Databricks can be represented as a layered stack with a trade-off between abstraction and controllability:
 
-Spark Structured Streaming + Auto Loader -> Lakeflow Spark Declarative Pipelines (SDP) -> Lakeflow Connect managed connectors
+Spark Structured Streaming -> Lakeflow Spark Declarative Pipelines (SDP) -> Lakeflow Connect managed connectors
 Low Abstraction, High Controllability -> High Abstraction, Low Controllability
 
-Structured Streaming + Auto Loader -> Write Spark code
+Spark Streaming -> Write Spark code
 Lakeflow Spark Declarative Pipelines -> Write declarations of target datasets only (scheduling, monitoring, error handling manged by Databricks)
 Lakeflow Connect -> Configuration only, No code
 
@@ -19,8 +19,72 @@ Databricks recommends starting at the most managed/abstracted layer and dropping
 
 A Connector is an object that connects Spark to one external system's protocols and schema.
 
-**Standard Connectors**: Connectors for Structured Streaming and SDP. Provides a data source to an external system - a way to read data into Spark's DataFrames; you build the pipeline around it.
+**Lakeflow Connect Standard Connectors**: Connectors used directly with Spark and SDPs. Provides a data source to an external system - a way to read data into Spark's DataFrames; you build the pipeline around it.
 
-Standard Connectors like Kafka and Auto Loaders sit in both, Structured Streaming and Spark Declarative Pipelines, layers of the Data Ingestion Hierarchy. You can use them in either. Whereas, a Standard Connector like SFTP is only compatible with Strcutured Streaming
+Standard Connectors like Kafka and Auto Loaders can be used with both, Spark and Spark Declarative Pipelines, layers of the Data Ingestion Hierarchy. You can use them in either. Whereas, a Standard Connector like SFTP is only compatible with Strcutured Streaming
 
-**Managed Connectors**: Connectors for Lakeflow Connect. Provides a data pipeline to an external system like SaaS applications (Salesforce, Workday) and Database applications (MySQL, PostgreSQL, SQL Server). You do not write any of the ETL logic for ingestion - only configure destination, scheduling, permissions, etc.
+**Lakeflow Connect Managed Connectors**: Connectors used for Lakeflow Connect. Provides a data pipeline to an external system like SaaS applications (Salesforce, Workday) and Database applications (MySQL, PostgreSQL, SQL Server). You do not write any of the ETL logic for ingestion - only configure destination, scheduling, permissions, etc.
+
+## Auto Loader
+
+Auto Loader is a Spark Structured Streaming source designed for large-scale data ingestion from cloud storage. It allows incremental and efficient  ingestion as new data arrives in the cloud platform.
+
+### Why Auto Loader?
+
+Why use Auto Loader to ingest data from cloud storage if we already have the vanilla Structured Streaming DataStream Reader?
+
+1) No Incremental Loading: Vanilla Structured Streaming performs full table scans on entire directories to detect new files. This is slow and slexpensiveow when dealing with millions of files.
+
+2) In-Memory File List Storage: Duplicate file detection via vanilla Structured Streaming is done by storing a list of all files in-memory on the the Driver node. This doesn't scale well since memory constraints arise as the file list increases.
+
+3) No Schema Evolution: Vanilla Structured Streaming requires manually defining the schema before the streaming starts. Also, new column addition  results in either data loss or requires manual handling.
+
+Auto Loader solves the above limitations of the traditional DataStream Reader API via:
+
+1) Supports Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full tabel scan of the directory, it leverages a Cloud Queue to detect new files
+
+2) Rocksdb: A distributed key-value store which supersedes storing the entire file list in-memory in the Driver node - enables infinite scalability
+
+3) Schema Evolution: Auto Loader supports automatic schema inference as well as schema evolution by automatically adding new data columns or unexpected data in a seperate 'rescue data' column
+
+**Summary**: Auto Loader is more efficient for big data ingestion and provides schmea changes resilience
+
+### Auto Loader Syntax
+
+Using `.format('cloudFiles')` to use Auto Loader
+
+```python
+df = spark.readStream \
+    .format('cloudFiles') # Selects Auto Loader as the streaming source
+    .option('cloudFiles.format', 'json') # Required: Format of files being used - json, csv, parquet, text, binaryFile, etc.
+    .option('cloudFiles.schemaLocation','/Volumes/gizmobox/raw/operational_data/customers_autoloader/_schema') # Directory for inferred schema
+    .option('cloudFiles.inferColumnTypes', 'true') # Infer schema types. If not given, stores all column types as Strings
+    .option('cloudFiles.schemaHints', 'created_timestamp TIMESTAMP, date_of_birth DATE, member_since DATE') # DDL types if inferred is incorrect
+    .option('cloudFiles.useNotifications', 'true') # File Notification Mode (Azure Event Grid) to track new files
+    .load('/Volumes/gizmobox/raw/operational_data/customers_autoloader/') # Directory to monitor for input
+```
+
+```python
+df_transformed = df.withColumn('file_path', col('_metadata.file_path')).withColumn('ingestion_date', current_timestamp()) # Transforming
+```
+
+```python
+streaming_query = df_transformed.writeStream \
+    .format('delta') \
+    .option('checkpointLocation', '/Volumes/gizmobox/raw/operational_data/customers_autoloader/_checkpoint_stream') # storage dir for checkpoints
+    .toTable('gizmobox.bronze.customers_autoloader') # delta/managed tables to write to
+```
+
+### More Auto Loader Options
+
+More Auto Loader options to be familiar with:
+
+`.option('cloudFiles.modifiedBefore', Timestamp)`: Optional filter to ingest files having a modification timestamp before the given one
+`.option('cloudFiles.modifiedAfter', Timestamp)`: Optional filter to ingest files having a modification timestamp before the given one
+`.option('pathGlobFilter', 'customers_2024_*.json')`: Optional filter to ingest file names matching the given pattern
+
+***Note***" These don't have the `cloudFiles.` prefix since these are inherited from Structured Streaming, not an Auto Loader invention
+
+### Schema Evolution in Auto Loader
+
+Auto Loader can infer the schema via `.option('cloudFiles.inferColumnTypes', 'true')` and allows explicit override of the inferred schema via `.option('')`
