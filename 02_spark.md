@@ -522,7 +522,7 @@ PIVOT working in-order:
 | `\w`  | Any **word** character: letter, digit, or underscore — same as `[A-Za-z0-9_]` | `a`, `7`, `_` |
 | `\d`  | Any **digit** — same as `[0-9]`                                               | `4` |
 | `\s`  | Any **whitespace**: space, tab, newline, carriage return                      | space, `\t` |
-| `.`   | Any **character** except newline                                              | the `.` in `file.csv` |
+| `.`   | Any **character** except newline                                              | `a.c` matches `a-c` but not `ac` |
 | `\.`  | A **literal** period — escaped, because a bare `.` means "any character"      | the `.` in `file.csv` |
 | `\W`  | **Not** a word character (inverse of `\w`)                                    | `-`, `@`, space |
 | `\D`  | **Not** a digit (inverse of `\d`)                                             | `a`, `-` |
