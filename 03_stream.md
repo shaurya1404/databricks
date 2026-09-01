@@ -107,3 +107,19 @@ Does not allow aggregate functions since they require updating previous rows as 
 2) `.outMode(update)`: Writes rows that have changed since the last micro-batch
 
 3) `.outMode(complete)`: Re-writes the entire table; enables aggregate functions
+
+## Checkpoints
+
+Checkpointing is a fault-tolerance mechanism that allows a streaming query to recover from failures and resume processing from where it left off while avoiding data duplication or loss.
+
+Checkpoint storage locations must be unique - The same checkpoint location cannot be specified for multiple streams.
+
+1) Offset Log (Write-Ahead Log) & Commit Log
+
+BEFORE a micro-batch starts, Spark records the offset of the current batch and writes it to the Write-Ahead Log. AFTER the batch has fully executed and the sink write succeeds, Spark writes to the Commit log. This file means one thing: batch N is done, never redo it.
+
+Ona subsequent micro-batch, Spark first reads the Write-Ahead log and the Commit log of the previous batch; if they match, data processing begins from the END of the previous batch. If they don't match, data processing begins from the START of the previous batch.
+
+2) Idempotent Sinks
+
+Such sinks include Delta, Lake, and Kafka. They enable 'once guarantees' as it ensures data written multiple times to the sink by ignoring the duplicates. In non-idempotent sinks, dedup must be handled manually
