@@ -8,11 +8,11 @@ Batch Processing operates on data collected over a period of time, and then proc
 
 However, batch processing is not suited for real-time solutions such as ad-hoc decision making for fraud detection and algorithm recommendations, or live processing for IoT devices.
 
-Stream Processing allows processing of data continuously as it arrives, enabling real-time and near real-time solutions. Stream Processing operates on a dynamic/unbounded dataset - one that has a start but no end. There is no final output, only a continuously revised one.
+Stream Processing operates on data continuously as it arrives, enabling real-time and near real-time solutions. Stream Processing operates on a dynamic/unbounded dataset - one that has a start but no end. There is no final output, only a continuously revised one.
 
 ## Spark Structured Streaming API
 
-The SparkSession `spark` exposes an API for optimized and fault-tolerant for stream processing that's nearly identical to the Batch processing API.
+The SparkSession `spark` exposes an API optimized and fault-tolerant for stream processing that's nearly identical to the Batch processing API.
 
 ### How Spark Streaming Optimizes for Stream Processing
 - Spark asks you to imagine stream as a dynamic table which keeps having rows appended to the bottom. Spark processes the stream as a series of small batch jobs called 'micro-batches'. 
@@ -42,7 +42,7 @@ df = spark.readStream \
     .format('json') \
     .schema(struct_schema) \
     .load('/Volumes/gizmobox/raw/operational_data/customers_stream/*.json')
-# We always load the data from an external table (raw) and transform and write back to managed/delta tables (bronze/silver/gold)
+# Pattern: always load the data from an external table (raw) and transform and write back to managed/delta tables (bronze/silver/gold)
 ```
 
 2) Transform Data
@@ -101,12 +101,12 @@ Should not be used for Production workloads.
 
 1) `.outMode(append)` - Default
 
-Writes the new rows only that have arrived since the last micro-batch. Used well with operations like `filter`. 
+Writes only the new rows that have arrived since the last micro-batch. Used well with operations like `filter`. 
 Does not allow aggregate functions since they require updating previous rows as wel.
 
 2) `.outMode(update)`: Writes rows that have changed since the last micro-batch
 
-3) `.outMode(complete)`: Re-writes the entire table; enables aggregate functions
+3) `.outMode(complete)`: Re-writes the entire table; allows aggregate functions
 
 ## Checkpoints
 
