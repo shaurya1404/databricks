@@ -109,9 +109,9 @@ The following modes are supported for Schema Evolution set by `.option('cloudFil
 
 ## Event Streaming
 
-A database table stores the CURRNT STATE of data (customer 42 has address X). An event stream stores events which are essentially FACTS (customer 42 changed address to X at 14:03). The Fact stores both the CURRENT STATE and the LOG of the changes that lead to the current state. 
+A database table stores the CURRNT STATE of data (customer 42 has address X). An event stream stores events which are essentially FACTS (customer 42 changed address to X at 14:03). A Fact stores both the CURRENT STATE and the LOG of the changes that lead to the current state. 
 
-Every event is immutable and append-only.
+An event stream is immutable and append-only.
 
 ## Kafka
 
@@ -124,13 +124,30 @@ Initializing a Kafka Connector is similar to Auto Loader - accessed via the Data
 df = (spark.readStream
         .format('kafka') # Use Kafka as the Data streaming source
         .option('kafka.bootstrap.servers', 'host:port') # Specify the Kafka server/cluster to connect to
-        .option('subscribe', 'topic_name') # The topic in the server to stream data from
+        .option('subscribe', 'topic_name') # The topic in the server to subscribe to
         .option('startingOffsets', 'latest') # 'earliest' - ingest all events in the stream. 'latest' - ingest only new events as they arrive
         .load())
 
 df_parsed = df.selectExpr("CAST(value AS STRING)") # Kafka returns data in BINARY which must be casted to STRING before further transformations
 ```
-
+***Note***: The event streaming platform for Azure is 'Event Hubs'. The structure of the code remains almost identical as the above.
 After applying the minimal transformations, the data is usually stored in a Delta table in the Bronze schema.
 
-***Note***: The event streaming platform for Azure is 'Event Hubs'. The structure pf the code remains almost identical as the above.
+## Lakeflow Connect Managed Connectors
+
+Managed Connectors are fully-managed solutions to ingest data provided by Databricks from Saas (Salesforce, Workday ) and Databases (MySQl, PostgreSQL).
+
+- SaaS Applications exspose their data through APIs which is accessed via a Connection in Databricks.
+- A Connection is defined as a UC Object within Databricks, allowing governance and reusability across workspaces.
+- Under the hood, Databrick connects to the API via HTTPS
+- Once connected, the Ingestion Pipeline runs on Serverless compute and is fully managed by Databricks handling incremental ingestion, managing failures, and writting data into the Lakehouse (Delta tables in the Bronze layer)
+
+The 4-Component Architecture of Configuring a SaaS Managed Connector:
+
+1) Source (SaaS Tables where the data is to be ingested from                            - Account and Contact tables in SF)
+2) Connection (The UC Object that connects Databricks to the SaaS to access the Source  - lakeflow_man_conn_salesforce)
+3) Ingestion Pipeline (The fully mangewd pipeline itself within Databricks              - managed_ingestion_pl_salesforce)
+4) Destination (The Delta Table where the transformed data from the Pipeline is stored  - databricks_learning_ws.bronze.tables)
+
+The 6-Component Architecture of Configuring a Database Managed Connector:
+
