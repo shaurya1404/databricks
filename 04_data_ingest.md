@@ -106,3 +106,31 @@ The following modes are supported for Schema Evolution set by `.option('cloudFil
 
 `.option('cloudFiles.schemaEvolutionMode', mode)` → a READ option. What Auto Loader does when the source data has a column it didn't expect.
 `.option('mergeSchema', true)` → a WRITE option. Whether the target Delta table is allowed to widen to accept new columns.
+
+## Event Streaming
+
+A database table stores the CURRNT STATE of data (customer 42 has address X). An event stream stores events which are essentially FACTS (customer 42 changed address to X at 14:03). The Fact stores both the CURRENT STATE and the LOG of the changes that lead to the current state. 
+
+Every event is immutable and append-only.
+
+## Kafka
+
+Kafka is a storage platform for event streaming - essentially an append-only log. 
+Unlike a queue, reading of events is non-destructive. The data stays for a retention period until which each consumer can access it independently.
+
+Initializing a Kafka Connector is similar to Auto Loader - accessed via the DataStream API as a source:
+
+```python
+df = (spark.readStream
+        .format('kafka') # Use Kafka as the Data streaming source
+        .option('kafka.bootstrap.servers', 'host:port') # Specify the Kafka server/cluster to connect to
+        .option('subscribe', 'topic_name') # The topic in the server to stream data from
+        .option('startingOffsets', 'latest') # 'earliest' - ingest all events in the stream. 'latest' - ingest only new events as they arrive
+        .load())
+
+df_parsed = df.selectExpr("CAST(value AS STRING)") # Kafka returns data in BINARY which must be casted to STRING before further transformations
+```
+
+After applying the minimal transformations, the data is usually stored in a Delta table in the Bronze schema.
+
+***Note***: The event streaming platform for Azure is 'Event Hubs'. The structure pf the code remains almost identical as the above.
