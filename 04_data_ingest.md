@@ -133,12 +133,12 @@ df_parsed = df.selectExpr("CAST(value AS STRING)") # Kafka returns data in BINAR
 ***Note***: The event streaming platform for Azure is 'Event Hubs'. The structure of the code remains almost identical as the above.
 After applying the minimal transformations, the data is usually stored in a Delta table in the Bronze schema.
 
-## Lakeflow Connect Managed Connectors
+## Lakeflow Connect Managed Connector
 
 Managed Connectors are fully-managed solutions to ingest data provided by Databricks from Saas (Salesforce, Workday ) and Databases (MySQl, PostgreSQL).
 
 - SaaS Applications exspose their data through APIs which is accessed via a Connection in Databricks.
-- A Connection is defined as a UC Object within Databricks, allowing governance and reusability across workspaces.
+- A Connection is defined as a UC Object within Databricks, allowing governance and reusability across different pipelines.
 - Under the hood, Databrick connects to the API via HTTPS
 - Once connected, the Ingestion Pipeline runs on Serverless compute and is fully managed by Databricks handling incremental ingestion, managing failures, and writting data into the Lakehouse (Delta tables in the Bronze layer)
 
@@ -146,8 +146,24 @@ The 4-Component Architecture of Configuring a SaaS Managed Connector:
 
 1) Source (SaaS Tables where the data is to be ingested from                            - Account and Contact tables in SF)
 2) Connection (The UC Object that connects Databricks to the SaaS to access the Source  - lakeflow_man_conn_salesforce)
-3) Ingestion Pipeline (The fully mangewd pipeline itself within Databricks              - managed_ingestion_pl_salesforce)
+3) Ingestion Pipeline (The fully manaed pipeline itself within Databricks              - managed_ingestion_pl_salesforce)
 4) Destination (The Delta Table where the transformed data from the Pipeline is stored  - databricks_learning_ws.bronze.tables)
 
 The 6-Component Architecture of Configuring a Database Managed Connector:
 
+1) Source (The Tables(s) in External Databases - My SQL, PostgreSQL, SQL Server)
+2) Connection (UC Object that stores credentials to connect to the Database)
+
+There are two mechanisms provided by databases that track changes that have occured to the data so that we don't need to perform a full-table scan everytime just to detect which records have been inserted, updated, or deleted:
+- Change Data Capture:  Logs values of the rows that changed. Does not require a Primary Key but heavyweight for the Source database
+- Change Tracking:      Logs only which rows changed. Requires a Primary Key but lightweight for the Source database
+
+If both are enabled by the Source Database, it is recommended to use Change Tracking
+
+3) Ingestion Gateway (Continuously captures the changes to the data from CDC/CT - runs only on Classic compute)
+4) Staging Storage (A UC Catalog Volume that temporarily stores the changes read by the Ingestion Gateway)
+5) Ingestion Pipeline (Fully managed pipeline within Databricks that processes the stored data - runs on Serverless compute)
+
+The Staging Storage acts as the buffer between data capture and processing - the Ingestion Pipeline may process data periodically rather than running continuously like the Ingestion Gateway since the changes are being stored. This allows the fully managed pipelines to run on Serverless compute
+
+6) Destination (The Delta Table where the transformed data from the Pipeline is stored - usually the Bronze layer)
