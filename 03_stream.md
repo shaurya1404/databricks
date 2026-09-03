@@ -122,4 +122,4 @@ Ona subsequent micro-batch, Spark first reads the Write-Ahead log and the Commit
 
 2) Idempotent Sinks
 
-Such sinks include Delta, Lake, and Kafka. They enable 'once guarantees' as it ensures data written multiple times to the sink by ignoring the duplicates. In non-idempotent sinks, dedup must be handled manually
+Such sinks include Delta, Lake, and Kafka. They enable 'once guarantees' as it ensures data is not written multiple times to the sink by ignoring the duplicates. In non-idempotent sinks, dedup must be handled manually.
