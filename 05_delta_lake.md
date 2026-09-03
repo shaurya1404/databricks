@@ -1,7 +1,6 @@
 # Delta Lakes
 
-Delta Lake is the optimized storage layer that defines the foundational tables in a Lakehouse architecture.
-A Delta Table is an instance of the Delta Lake format.
+Delta Lake is the optimized storage layer defined in the Lakehouse architecture.
 
 Delta Lake File Format = Parquet File Format + Transaction Log
 
@@ -20,11 +19,84 @@ Data files are written first, THEN made visible by one atomic log commit. The co
 
 2) Scalability via Metadata: Transactions logs allow scaling tables with Petabytes of data with ease
 
-3) Time Travel: Transaction log enables querying previous version of the table
+3) Time Travel: Transaction log enables querying previous versions of the table
 
-4) Unified Solution: Delta Lake enables a single solution of data for both Batch and Stream processing as exist on the same `spark` API.
+4) Unified Solution: Delta Lake enables a single solution of data for both Batch and Stream processing as they exist on the same `spark` API.
 
-5) Support for DML Operations: Traditional Data Lakes were not efficient with ingesting incremental data nor updating existing records. Delta Lakes support all DML operations such as Insert
+5) Support for DML Operations: Traditional Data Lakes were not efficient with ingesting incremental data nor updating existing records. Delta Lakes support all DML operations such as Insert, Update, and Delete
 
 ## Delta Lake Architecture
 
+1) Data Storage = Parquet Files + Delta/Transaction Log
+
+Parquet - Columnar binary file format
+Transaction Log - JSON file that records every transaction performed on the file
+
+The transaction log differentiates Delta Lake from Data lake as it enables ACID transactions, time travel, and versioning
+
+2) Unity Catalog Delta Table: UC Object built on top of the Data Storage layer that enables data governance and security
+
+3) Delta Engine: Spark-compatible query engine optimized for performance on Delta Lakes
+
+4) Spark Compute: Peforms ingestions, transformations, and data processing on the Delta Lakes
+
+## Transaction Log
+
+1) Creating the Catalog and Schema where the Delta Table will live
+
+```sql
+CREATE CATALOG IF NOT EXISTS demo
+MANAGED LOCATION 'abfss://demo@databrickslearningextadl.dfs.core.windows.net/'
+
+CREATE SCHEMA IF NOT EXISTS demo.delta_lake
+MANAGED LOCATION 'abfss://demo@databrickslearningextadl.dfs.core.windows.net/delta_lake'
+```
+
+2) Creating the Delta/Managed Table
+
+```sql
+CREATE TABLE IF NOT EXISTS demo.delta_lake.companies
+(
+    company_name STRING,
+    founded_date DATE,
+    country STRING
+)
+```
+
+Since no location is specified while creating the table, Spark knows to create a Delta Table in the cloud directory pointed by the closest Managed Location which is `schema: delta_lake`
+
+Thus, Delta Lake table storage location: 
+`abfss://demo@databrickslearningextadl.dfs.core.windows.net/delta_lake/__unitystorage/schemas/5786e7b6-09cd-4485-9f81-d31c3417ced4/tables/3ea675ff-9647-4924-81cd-2815898f8e15`
+
+Every operation on the Managed Table, i.e, the Parquet files is logged as a new JSON file in the `_delta_log` transaction log directory
+
+### History and Time Travel
+
+1) Query Delta Lake Table History
+
+```sql
+DESCRIBE HISTORY demo.delta_lake.companies
+```
+
+2) Query Data from a Specific Version
+
+```sql
+SELECT * FROM demo.delta_lake.companies
+VERSION AS OF 1
+```
+
+3) Query Data from a Specific Timestamp
+
+```sql
+SELECT * FROM demo.delta_lake.companies
+TIMESTAMP AS OF '2026-09-03T09:54:45.000+00:00'
+```
+
+4) Restore Data from a Specific Version
+
+```sql
+RESTORE TABLE demo.delta_lake.companies
+VERSION AS OF 1
+```
+
+Restoring to a previous version creates a new transaction log file (`00000000000000000003.json`) which describes the current version of the Delta Table as having EXCLUDED the Parquet files that weren't in the version that we restored to rather than rewritting any of the data

@@ -2,9 +2,10 @@
 
 1) Operational Data
 
-Customers, Orders - JSON
+Customers - JSON
+Orders - JSON
 Addresses - CSV
-Membership -Images
+Membership - Images
 
 2) External Data
 
@@ -15,7 +16,7 @@ Refunds - Azure SQL Database
 
 - **Blob**: Binary Large Object (Blob) is Azure's analogous for a file. Parquet, PNG, CSV files are all Blobs - Azure stores and retrieves the bytes; interpreting them is entirely your problem. This is why the service is Azure Blob Storage, and the role names are Storage Blob Data Contributor and Storage Blob Data Reader.
 
-- **Storage Account**: A top-level Azure resource that holds your data. It's the unit at which you choose the region, the redundancy, the performance, and the encryption. It's the unit that gets a globally unique name across all of Azure since it becomes a host name:
+- **Storage Account**: A top-level Azure resource that stores your data. It's the unit at which you choose the region, the redundancy, the performance, and the encryption. It's the unit that gets a globally unique name across all of Azure since it becomes a host name:
 
     https://acmedata.blob.core.windows.net/                      ← Blob endpoint
     abfss://container_name@storage_name.dfs.core.windows.net/    ← Azure Blob File System Secure URL
@@ -40,7 +41,7 @@ We need Unity Catalog Objects to identify and access specific resources within t
 Every Metastore has a three-level namespace to categorize UC objects: `catalog.schema.object`
 - Catalog: GizmoBox
 - Schema: Raw, Bronze, Silver, Gold
-- Volume: Operational
+- Object: Operational
 
 UC Objects include: 
 1) Tables — tabular data
@@ -66,7 +67,7 @@ If a Managed Location is not specified, all objects will be created under the Me
 
 The top-level logical containers within a Catalog.
 
-Ensure talog before creating the schemas:
+Ensure catalog before creating the schemas:
 View Current Catalog: `SELECT current_catalog()`
 Switch Catalog: `USE CATALOG gizmobox`
 
@@ -91,6 +92,8 @@ If Managed Location is not specified, the UC will check to see if a Managed Loca
 
 A volume is a directory-like logical container that holds non-tabular data (files). Similar to how a table holds rows, a Volume holds files and folders inside it.
 
+***Note***: External Volumes must be registered against a directory within an External Location
+
 ```sql
 USE CATALOG gizmobox;
 USE SCHEMA raw;
@@ -107,7 +110,7 @@ Creating a Volume also enables accessing the data using the relative UC filepath
 Filepath format: `/Volumes/catalog/schema/volume`
 
 ```sql
-%fs ls /Volumes/gizmobox/raw/operational_data
+%fs ls /Volumes/gizmobox/raw/operational
 ```
 
 # Querying Data
@@ -258,7 +261,7 @@ However, the Addresses file uses tab (`\t`) as the delimiter to delineate column
 
 1) read_files()
 
-read_files() is a table-valued function, i.e, a function that produces a table and, as a corllary, is used in the FROM clause. It reads files from the cloud storage while also allowing arguments.
+read_files() is a table-valued function, i.e, a function that produces a table and, as a corollary, is used in the FROM clause. It reads files from the cloud storage while also allowing arguments.
 
 **Syntax**: `read_files(path, [, option_key => option_value] [...])`
 
@@ -273,11 +276,13 @@ FROM read_files('/Volumes/gizmobox/raw/operational_data/addresses', format => 'c
 
 2) External Tables
 
-Unlike 'operational_data', a UC Volume has not been created on the 'external' directory but it can still be accessed directly via the ABFSS protocol.
+Unlike 'operational', a UC Volume has not been created on the 'external' directory but it can still be accessed directly via the ABFSS protocol.
 
 An External Table is a UC object that's useful when only reading data from an external source. It doesn't move or copy the data itself but just stores metadata describing the data in the metastore - hence, dropping the table only deletes the metadata without touching the actual data.
 
-An External Table and a Volume cannot co-exist on the same external resource since we would then have two governance objects governing the same data leading to contradictions. The External Table can only be created if an External Location has already been created on the path that the External Table points to since the Storage Credential is stored in the External Location which the External Table needs to access the path.
+An External Table and a Volume cannot co-exist on the exact same cloud path since we would then have two governance objects governing the same data leading to contradictions.
+
+Both, External Tables and External Volumes can only be created if an External Location has already been created on the root path that the External Table/Volume points to since the Storage Credential is stored in the External Location which the External Table needs to access the path.
 
 ### Creating An External Table on Payments
 
@@ -291,7 +296,7 @@ CREATE TABLE IF NOT EXISTS gizmobox.bronze.payments(
 )
 USING CSV
 OPTIONS (
-    delimter=','
+    delimiter=','
 )
 LOCATION 'abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/raw/external/payments' -- Specifying the location makes it External
 ```

@@ -83,7 +83,7 @@ Databricks splits the platform into a **control layer** (Web UI, Compute Orchest
 - Compute Orchestration: Cluster or Job launch, number and type of workers, Autoscaling
 - Unity Catalog: Data Governance and Lineage
 - Classical Compute: Complex but high controlability/configurability clusters managed by the Cloud Platform
-- Serverless Compute: Simple/Abstracted but low controlability clusters managewd by Databricks
+- Serverless Compute: Simple/Abstracted but low controlability clusters managed by Databricks
 
 **Note**: The words compute and cluster are used interchangyably in pratical use cases
 
@@ -277,13 +277,13 @@ A Storage Credential is a Unity Catalog Object that wraps the Access Connector t
 
 The Storage Credential is what allows the Unity Catalog to govern access on the Storage Account. The cloud-native identity wrapper of the credential is an Access Connector on Azure, or an IAM role on AWS.
 
-The Access Connector's managed identity gives Unity Catalog the capability to reach the storage account. That capability is registered as a storage credential in the Unity Catalog. By default, no one has access to any of it. Users are then granted privileges on external locations, and UC checks those grants at query time.
+The Access Connector's managed identity gives Unity Catalog the capability to reach the storage account. That capability is registered as a Storage Credential in the Unity Catalog. By default, no one has access to any of it. Users are then granted privileges on external locations, and UC checks those grants at query time.
 
 5) Create an External Location
 
 External Location = Path + Storage Credential
 
-The storage container is what makes the UC capable to govern the data on the cloud. The external locations are what the UC enforces checks on in order to allow users access to resources.
+The Storage Credential container is what makes the UC capable to govern the data on the cloud. The External Locations are what the UC enforces checks on in order to allow users access to resources.
 
 Storage credential = CAPABILITY (what UC can reach). Not a grant. Default deny.
 External location  = PERMISSION SURFACE (what a user may reach). Grantable.
