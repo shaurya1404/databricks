@@ -100,3 +100,26 @@ VERSION AS OF 1
 ```
 
 Restoring to a previous version creates a new transaction log file (`00000000000000000003.json`) which describes the current version of the Delta Table as having EXCLUDED the Parquet files that weren't in the version that we restored to rather than rewritting any of the data
+
+## ACID Transactions
+
+Important Characteristics of a Delta Table that enable ACID Transactions:
+
+1) Transaction log files are written only at the end of the transaction
+2) The transaction log is the single source of truth for all readers of the Delta lake that describes which files are available to read
+
+### Scenario 1 - Concurrent Write and Read Operations (Isolation)
+
+Current File in Delta Lake: A.parquet
+Writer: In-progress of B.parquet
+Transaction Log: Only displays A.parquet
+Reader: Only sees A.parquet
+
+### Scenario 2 - Failed Write Operation (Atomicity & Consistency)
+
+Current File in Delta Lake: A.parquet
+Writer: Partilly Writes B.parquet and Fails
+Transaction Log: Only records A.parquet
+Writer: retries and succeeds in C.parquet
+Transaction Log: Commits A and C
+Reader: Only sees A and C and not the corrupted file B 
