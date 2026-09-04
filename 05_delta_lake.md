@@ -123,3 +123,58 @@ Transaction Log: Only records A.parquet
 Writer: retries and succeeds in C.parquet
 Transaction Log: Commits A and C
 Reader: Only sees A and C and not the corrupted file B 
+
+## Create Table - Table and Column Properties
+
+Some properties that can be defined for the table/columns when creating a Delta Table
+
+1) Table Properties
+
+- COMMENT: Documentation describing the table
+- TBLPROPERTIES: Used to specify metadata and/or configuration parameters
+
+```sql
+CREATE TABLE IF NOT EXISTS demo.delta_lake.companies (
+    company_name STRING NOT NULL,
+    founded_date DATE,
+    country STRING
+)
+COMMENT 'This table consists of data about some of the tech giants'
+TBLPROPERTIES ('sensitive' = 'true', 'delta.enableDeletionVectors'= 'false')
+```
+
+2) Column Properties
+
+- NOT NULL: NULLable by default
+- COMMENT: per-column comments
+
+```sql
+CREATE TABLE IF NOT EXISTS demo.delta_lake.companies (
+    company_name STRING NOT NULL,
+    founded_date DATE COMMENT 'The year the company was founded in',
+    country STRING
+)
+```
+
+3) Generated Columns
+
+Columns whose values are generated at the time of insertion of the record
+
+- Generated Identity Column: Used to uniquely identify rows - usually set as the PK
+
+`GENERATE [ALWAYS | BY DEFAULT] AS IDENTITY ([START WITH start] | [INCREMENT BY step])`
+
+- Generated Computed Column: A column derived as an expression of other column values
+
+`GENERATE ALWAYS AS ( expr )`
+
+```sql
+CREATE TABLE IF NOT EXISTS demo.delta_lake.companies (
+    company_id BIGINT GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1),
+    company_name STRING NOT NULL,
+    founded_date DATE COMMENT 'Date when the company was founded',
+    founded_year STRING GENERATED ALWAYS AS (date_format(founded_date, 'yyyy')),
+    country STRING
+)
+```
+
