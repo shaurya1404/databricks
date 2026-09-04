@@ -335,4 +335,25 @@ COPY_OPTIONS: How to write to the destination
 
 Therefore:
 1) Same records in two different files -> duplicates
-2) Renaming or modifying a file in the source -> new
+2) Renaming/modifying (modificationTime updates in _delta_log) a file -> identified as new file
+
+## MERGE
+
+MERGE takes a SOURCE of incoming rows and a TARGET table, matches them on a key you supply, and then lets you INSERT / UPDATE / DELETE in each of three cases:
+1) the rows matched - `WHEN MATCHED`
+2) in the source but not the target - `WHEN NOT MATCHED`
+3) in the target but not the source - `WHEN NOT MATCHED BY SOURCE` (almost never used - just know it exists)
+
+```sql
+MERGE INTO target AS t          -- the table being changed
+USING source  AS s              -- the incoming rows
+ON t.id = s.id                  -- how to JOIN
+
+WHEN MATCHED THEN 
+    UPDATE SET *
+WHEN NOT MATCHED THEN
+    INSERT *
+```
+
+***Note***: Refer to the Notebook on MERGE for the practical example
+
