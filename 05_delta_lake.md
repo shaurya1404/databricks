@@ -178,3 +178,64 @@ CREATE TABLE IF NOT EXISTS demo.delta_lake.companies (
 )
 ```
 
+## Create Or Replace vs Drop and Create
+
+The difference between `CREATE OR REPLACE` and `DROP - CREATE` lies in whether the transaction log is cleared or not. In the former, the table history is preserved. In the latter, it's reset every time.
+
+```sql
+DROP TABLE IF EXISTS demo.delta_lake.companies;
+CREATE TABLE demo.delta_lake.companies (
+    company_name STRING,
+    founded_date DATE,
+    country STRING
+);
+
+INSERT INTO demo.delta_lake.companies
+VALUES ('Databricks', '2012-07-01', 'USA'),
+    ('Microsoft', '1975-04-01', 'USA'),
+    ('Google', '1998-09-04', 'USA'),
+    ('Amazon', '1994-05-05', 'USA');
+```
+
+Re-executing the above returns the same two operations (CREATE and WRITE) in the table's history
+
+```sql
+CREATE OR REPLACE TABLE demo.delta_lake.companies (
+    company_name STRING,
+    founded_date DATE,
+    country STRING
+);
+
+INSERT INTO demo.delta_lake.companies
+VALUES ('Databricks', '2012-07-01', 'USA'),
+    ('Microsoft', '1975-04-01', 'USA'),
+    ('Google', '1998-09-04', 'USA'),
+    ('Amazon', '1994-05-05', 'USA');
+```
+
+Re-executing the above appends two rows (CREATE OR REPLACE and WRITE) in the history each time and does not reset it
+
+## CTAS
+
+Create Table As Select (CTAS) allows creating a new table based on a `SELECT` query
+
+```sql
+CREATE TABLE demo.delta_lake.companies_china
+AS
+SELECT *
+FROM demo.delta_lake.companies
+WHERE country = 'China'
+```
+
+### Limitations of CTAS Statements
+
+CTAS Statements do not allow setting Column Properties directly such as Casting Data Type, NOT NULL contraints, and Comments. Here are the work-arounds:
+
+1) Casting Data Type - CAST() in SELECT
+
+```sql
+CREATE TABLE demo.delta_lake.companies_china
+AS
+SELECT *
+FROM demo.delta_lake.companies
+WHERE country = 'China'
