@@ -277,7 +277,7 @@ Partitioning splits the table's storage by column value. In the Delta table, eac
 `/gold_companies_partitoned/event_date=USA/part-0000.parquet`
 
 Partitioning relsults in better query performance when filtering on the column partitioned by as the engine can overlook the directories that don't match the column's values we filtered on.
-Unlike Indexes, these don't map values to individual records but instead, splits one large tables into multiple smaller ones.
+An index is a separate B-tree structure that maps values to individual records. Whereas, partitioning is breaking the the large table into smaller distinct tables based on a column's values
 
 Low-Cardinality Columns - PARTIONED BY
 High-Cardinality Columns - INDEX
@@ -309,4 +309,22 @@ SELECT company_name, founded_date -- No need for the PARTIONED column
 FROM demo.delta_lake.bronze_companies_usa;
 ```
 
-***Note***: If trying to overwrite data in which the schema has changed, used Create Or Replace. The new data has to have the same schema for INSERT OVERWRITE to work
+***Note***: Use `CREATE OR REPLACE` when overwriting data in which the schema has changed. The new data has to have the same schema for INSERT OVERWRITE to work
+
+## COPY INTO
+
+Similar to INSERT INTO, it loads data from Cloud Storage into a Delta Table.
+It differs from INSERT INTO in the sense that COPY INTO loads incrementally - only new files are appended; already existing ones are ignored
+
+It's an alternative to Auto Loader (performs Stream Ingestion) for Batch Ingestion
+
+```sql
+COPY INTO demo.delta_lake.bronze_stock_prices
+FROM 'abfss://demo@databrickslearningextadl.dfs.core.windows.net/raw/stock_prices'
+FILEFORMAT = JSON
+FORMAT_OPTIONS ('inferSchema' = 'true') -- infer schema when reading
+COPY_OPTIONS ('mergeSchema' = 'true') -- evolve schema when writing
+```
+
+FORMAT_OPTIONS: How to read the source data
+COPY_OPTIONS: How to write to the destination
