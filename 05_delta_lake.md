@@ -231,7 +231,7 @@ WHERE country = 'China'
 
 CTAS Statements do not allow setting Column Properties directly such as Casting Data Type, NOT NULL contraints, and Comments. Here are the work-arounds:
 
-1) Casting Data Type - CAST() in SELECT
+1) No Casting Data Type - CAST() in SELECT
 
 ```sql
 CREATE TABLE demo.delta_lake.companies_china
@@ -239,3 +239,18 @@ AS
 SELECT *
 FROM demo.delta_lake.companies
 WHERE country = 'China'
+```
+
+2) No NOT NULL Constraint - ALTER TABLE
+
+```sql
+ALTER TABLE demo.delta_lake.companies_china
+ALTER COLUMN company_name SET NOT NULL
+```
+
+3) No Column Comments - ALTER TABLE
+
+```sql
+ALTER TABLE demo.delta_lake.companies_china
+ALTER COLUMN founded_date COMMENT 'The year the company was founded'
+```
