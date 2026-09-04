@@ -254,3 +254,59 @@ ALTER COLUMN company_name SET NOT NULL
 ALTER TABLE demo.delta_lake.companies_china
 ALTER COLUMN founded_date COMMENT 'The year the company was founded'
 ```
+
+## Insert Overwrite
+
+INSERT INTO - Append new data
+INSERT OVERWRITE - Replace existing data in a table or a specific partition with new data
+
+### Overwrite in a Table
+
+```sql
+INSERT OVERWRITE demo.delta_lake.gold_companies
+SELECT * FROM demo.delta_lake.bronze_companies
+```
+
+Overwriting the existing the data in the gold schema table with the data currently sitting in the bronze schema. The transaction log tracks this as a new version.
+
+### Overwrite in a specific Partition
+
+Partitioning splits the table's storage by column value. In the Delta table, each partitioned value gets its own directory which contains parquet files pertaining to that column's value only
+
+`/gold_companies_partitoned/country=China/part-0000.parquet`
+`/gold_companies_partitoned/event_date=USA/part-0000.parquet`
+
+Partitioning relsults in better query performance when filtering on the column partitioned by as the engine can overlook the directories that don't match the column's values we filtered on.
+Unlike Indexes, these don't map values to individual records but instead, splits one large tables into multiple smaller ones.
+
+Low-Cardinality Columns - PARTIONED BY
+High-Cardinality Columns - INDEX
+
+```sql
+DROP TABLE IF EXISTS demo.delta_lake.gold_companies_partitioned;
+
+CREATE TABLE IF NOT EXISTS demo.delta_lake.gold_companies_partitioned (
+    company_name STRING,
+    founded_date DATE,
+    country STRING
+)
+PARTITIONED BY (country);
+
+INSERT INTO demo.delta_lake.gold_companies_partitioned
+VALUES
+('Microsoft', '1975-04-04', 'USA'),
+('Alibaba', '1999-07-01', 'China');
+
+SELECT * FROM demo.delta_lake.gold_companies_partitioned
+```
+
+Now, overwriting the partition for country='USA' without affecting data in 'China'
+
+```sql
+INSERT OVERWRITE demo.delta_lake.gold_companies_partitioned
+PARTITION (country='USA')
+SELECT company_name, founded_date -- No need for the PARTIONED column
+FROM demo.delta_lake.bronze_companies_usa;
+```
+
+***Note***: If trying to overwrite data in which the schema has changed, used Create Or Replace. The new data has to have the same schema for INSERT OVERWRITE to work
