@@ -328,3 +328,11 @@ COPY_OPTIONS ('mergeSchema' = 'true') -- evolve schema when writing
 
 FORMAT_OPTIONS: How to read the source data
 COPY_OPTIONS: How to write to the destination
+
+### Caveat of COPY INTO
+
+`COPY INTO` only compares which files have been loaded previously for incremental loading. It compares the files in the source directory against the files listed in the transaction log of the destination - it does NOT compare the individual records inside the files.
+
+Therefore:
+1) Same records in two different files -> duplicates
+2) Renaming or modifying a file in the source -> new
