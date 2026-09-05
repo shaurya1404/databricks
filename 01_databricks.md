@@ -1,7 +1,7 @@
 # Data Warehouses
 
 Introduced in the 1980s
-**Definition**: structured, subject-oriented, time-invariant, and non-volatile storage of data
+**Definition**: structured, subject-oriented, and non-volatile storage of data
 
 A Data Warehouse performs ETL operations in order to reconcile data from various sources in the organization.
 The data received in a data warehouse is either structured such as SQL tables or semi-structured such as CSV or JSON format.
@@ -131,8 +131,6 @@ Spot instances: Unused VMs in the Cloud that are offered at cheaper price but ca
 
 Notebook: A Jupyter-style interactive document made of cells, attached to compute. 
 You run a cell, the code goes to the cluster, the result comes back and is displayed inline. The notebook itself is a control-layer object; the execution happens on the cluster it's attached to.
-
-Volume: Unity Catalog objects that govern non-tabular data — files. Tables govern your rows and columns; volumes govern your PDFs, images, CSVs, JSON drops, ML model artifacts
 
 Workspace: An isolated Databricks instance that has its own users, notebooks, clusters, jobs, etc.
 
@@ -265,9 +263,9 @@ Why not store the Managed Identity in the Storage Credential directly? Why do we
 
 2) Create an Azure Data Lake Storage Gen2 Account
 
-Creating a Cloud Storage Account which will hold all our structured (tables) and unstructured (files) data. Azure Storage includes Azure Blobs (objects), Azure Data Lake Storage Gen2, Azure Files, and Azure Tables. We are using ADLS Gen2
+Creating a Cloud Storage Account which will hold all our structured (tables) and unstructured (files) data.
 
-3) Give the Access Connector the role of Storage Blob Contributor
+3) Give the Access Connector the role of Storage Blob Data Contributor
 
 Giving read/write permissions to the Access Connector on the Storage Account via the Access Control (IAM) in the Storage Account
 

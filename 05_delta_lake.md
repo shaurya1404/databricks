@@ -282,6 +282,8 @@ An index is a separate B-tree structure that maps values to individual records. 
 Low-Cardinality Columns - PARTIONED BY
 High-Cardinality Columns - INDEX
 
+A table can be both PARTITIONED and have a Clustered Index (both lead to physical re-arrangement of rows in the storage) since the partition decides which partition the row goes inside, while the index decides the arrangement of rows within the partitions; N B-Trees will exist - one for each partition.
+
 ```sql
 DROP TABLE IF EXISTS demo.delta_lake.gold_companies_partitioned;
 
@@ -305,7 +307,7 @@ Now, overwriting the partition for country='USA' without affecting data in 'Chin
 ```sql
 INSERT OVERWRITE demo.delta_lake.gold_companies_partitioned
 PARTITION (country='USA')
-SELECT company_name, founded_date -- No need for the PARTIONED column
+SELECT company_name, founded_date -- PARTITIONED column's value is implicitly added
 FROM demo.delta_lake.bronze_companies_usa;
 ```
 

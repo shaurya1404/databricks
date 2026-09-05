@@ -1,5 +1,7 @@
 # Data Lakehouse Project Overview
 
+Files are stored in two seperate directories in the Gizmobox container on the Cloud:
+
 1) Operational Data
 
 Customers - JSON
@@ -41,7 +43,7 @@ We need Unity Catalog Objects to identify and access specific resources within t
 Every Metastore has a three-level namespace to categorize UC objects: `catalog.schema.object`
 - Catalog: GizmoBox
 - Schema: Raw, Bronze, Silver, Gold
-- Object: Operational
+- Object: Operational (Volume)
 
 UC Objects include: 
 1) Tables — tabular data
@@ -170,7 +172,7 @@ FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
 
 ## Temporary Views
 
-A View is created within the Unity Catalog. But, Spark also allows us to create Temporary Views for the current session:
+A View is created within the Unity Catalog. But, Spark also allows us to create Temporary Views for the current Spark session:
 
 1) View: A permanent object registered in the metastore, sitting in the namespace exactly where a table would: `catalog.schema.view`
 2) Temporary View: Lasts the Spark Session. Invisible to other notebooks in the same cluster
@@ -221,7 +223,7 @@ Multi-line Complex JSON: [
 
 ## Querying Orders Folder - Complex JSON
 
-The Orders table has data inconsistencies such as type mismatches in some of the records. Hence, the JSON parser fails to qualify all the rows and returns the corrupted rows in the `_corrupt_record` column while leaving NULL in the actual columns.
+The Orders table has data inconsistencies such as type mismatches in some of the records. Hence, the JSON parser fails to qualify all the rows and returns the corrupted rows in the `_corrupt_record` column while leaving NULL in all the actual columns for those rows.
 
 Hence, to avoid data loss, loading the file as a 'text' file format into the Bronze layer. We will then fix the issues and then load it using the JSON parser into the Silver layer
 
@@ -236,7 +238,7 @@ FROM text.`/Volumes/gizmobox/raw/operational_data/orders`
 
 A Binary File Format is used to process unstructured data in Databricks such as PDFs, PNGs, MP3s, MP4s, or any other file format
 
-It is not a conventional file format like Parquet or CSV. Spark knows what a CSV is and how to handle it. A Binary File is a conversion of any file format into raw bytes without interpreting them - pure storage.
+It is not a conventional file format like Parquet or CSV. Spark knows what a CSV is and how to handle it. A Binary File is simply reading the bytes returned by the cloud storage without interpreting them.
 
 When processing Binary File formats, every file becomes one row in a four-column schema:
 - path: `string`. Full path to the file
@@ -257,7 +259,7 @@ FROM binaryFile.`/Volumes/gizmobox/raw/operational_data/memberships/*/*.png` -- 
 
 The straight-forward `SELECT * FROM <file_format>.<file_path>` we've been using until now is good for default parsing behaviour for files such as ',' as the delimiter and having no header in CSV file; but, it can't take arguments.
 
-However, the Addresses file uses tab (`\t`) as the delimiter to delineate columns and has a header. Hence, the minimal SELECT statement incorrectly parses the data. Hence, there are two ways of resolving this:
+However, the Addresses file uses tab (`\t`) as the delimiter to delineate columns and has a header. Hence, the minimal SELECT statement incorrectly parses the data. There are two ways of resolving this:
 
 1) read_files()
 
@@ -328,12 +330,12 @@ Distributed Compute: External database may not running query using a distributed
 
 2) Catalog Federation
 
-A "Catalog" from the perspective of the industry is any system that knows what tables exists, what the schema of the table is, and where it is stored. Unity Catalog is a Catalog. Hive Metastore is a Catalog. Snowflake has itsown. AWS Glue has its own.
+A "Catalog" from the perspective of the industry is any system that knows what tables exists, what the schema of the table is, and where it is stored. Unity Catalog is a Catalog. Hive Metastore is a Catalog. Snowflake has its own. AWS Glue has its own.
 
 Connection: Directly to Storage Object via External Catalog
 Point of Execution: Query executes in the databricks compute itself - cost-effective and performance-optimized
 
-Both: CREATE CONNECTION → CREATE FOREIGN CATALOG. No data copied. UC-governed. Three-namespace: `foreign_cat.schema.table`
+Both: CREATE CONNECTION → CREATE FOREIGN CATALOG. No data copied. UC-governed. Three-level-namespace: `foreign_cat.schema.table`
 Both allow joining the external data with the Lakehouse data via the query
 Both give you one namespace (catalog) and one governance model over data you never moved — what differs is only where the query executes.
 
@@ -374,7 +376,7 @@ OPTIONS (
 
 ```sql
 CREATE FOREIGN CATALOG IF NOT EXISTS asl_gizmobox_db_catalog_sql USING CONNECTION asql_gizmobox_db_conn_sql
-OPTIONS (database 'gizmobox-db'); -- Catalog to the Database in the Server
+OPTIONS (database 'gizmobox-db'); -- Connecting Catalog to the Database in the Server
 ```
 
 # Transform Data
