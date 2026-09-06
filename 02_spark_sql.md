@@ -383,7 +383,7 @@ OPTIONS (database 'gizmobox-db'); -- Connecting Catalog to the Database in the S
 
 1) Data Profiling using dbutils
 
-`dbutils` cannot be executed in a SQL cell. The `dbutils.data.summarize()` takes a DataFrame as its arguement, not the table name directly
+`dbutils` cannot be executed in a SQL cell. The `dbutils.data.summarize()` takes a DataFrame as its argument, not the table name directly
 
 ```python
 df = spark.table('gizmobox.bronze.v_customers')
@@ -440,6 +440,14 @@ SELECT *
 FROM casted
 ```
 
+When creating a Managed Table, Databricks will look for the Managed Location down the hierarchy, i.e, Schema -> Catalog
+We added a Managed Location when creating the Silver schema:
+`abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/silver`
+
+It then creates a folder system within the Schema that uniquely identifies this schema and the table within it
+Thus, final path of the Managed (Delta) table is:
+`abfss://gizmobox@databrickslearningextadl.dfs.core.windows.net/silver/__unitystorage/schemas/45956300-1b91-40d2-8ed5-1993a25646c9/tables/fb8496b2-a8e6-46dc-aef3-5ead2f4f2bce`
+
 ## Transform Payments Data
 
 1) Using date_format() to Extract Date and Time
@@ -472,7 +480,7 @@ The PIVOT clause turns multiple rows into one row with multiple columns
 ### Pivot Clause
 
 ```sql
-table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (header_values))
+table_reference PIVOT (aggregated_columns FOR pivoted_columns IN (row_values))
 ```
 **Syntax**: PIVOT(
     `aggregate these` 
@@ -481,7 +489,7 @@ table_reference PIVOT (aggregate_function_columns FOR pivot_columns IN (header_v
 
 **Summary**: PIVOT = GROUP BY + FILTER + AGGREGATION
 
-In a PIVOT clause, all rows are first implictly GROUPED BY column values in the table_reference (FROM clause) that are neither included in aggregate_function_columns nor in pivot_columns. Second, each unique value in the list of STRING LITERALS in row_values acts as a FILTER on the rows after the implicit GROUP BY. Last, an aggregate function value is calculated for each of the columns in the aggregate_function_columns list
+In a PIVOT clause, all rows are first implictly GROUPED BY column values in the table_reference (FROM clause) that are neither included in aggregated_columns nor in pivoted_columns. Second, each unique value in the list of STRING LITERALS in row_values acts as a FILTER on the rows after the implicit GROUP BY. Last, an aggregate function value is calculated for each of the columns in the aggregated_columns list
 
 total_columns = `literals in row_values` x `aggregated columns` + `grouped by columns`
 
