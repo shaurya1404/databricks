@@ -12,14 +12,16 @@ Stream Processing operates on data continuously as it arrives, enabling real-tim
 
 ## Spark Structured Streaming API
 
-The SparkSession `spark` exposes an API optimized and fault-tolerant for stream processing that's nearly identical to the Batch processing API.
+The SparkSession `spark` exposes an API optimized for stream processing that's nearly identical to the Batch processing API.
 
 ### How Spark Streaming Optimizes for Stream Processing
-- Spark asks you to imagine stream as a dynamic table which keeps having rows appended to the bottom. Spark processes the stream as a series of small batch jobs called 'micro-batches'. 
-- Spark provides 'once guarantees' that ensures no data processed is duplicated or missing.
-- Spark streaming also ensures fault-tolerance for stream by using 'Checkpoints'
 
-**Summary**: In batch, each run starts from nothing. In streaming, each micro-batch inherits two things from the last one: how far it has read (offsets), and what it has computed so far (state).
+- Spark asks you to imagine stream as a dynamic table which keeps having rows appended to the bottom. 
+- Spark processes the stream as a series of small batch jobs called **micro-batches**. 
+- Spark provides **Once Guarantees** that ensures no data processed is duplicated or lost.
+- Spark streaming also ensures fault-tolerance for stream by using **Checkpoints**
+
+**Summary**: In batch, each run starts from nothing (stateless). In streaming, each micro-batch inherits two things from the last one: how far it has read (offsets), and what it has computed so far (state).
 
 ## Structured Streaming Example
 
@@ -42,22 +44,22 @@ df = spark.readStream \
     .format('json') \
     .schema(struct_schema) \
     .load('/Volumes/gizmobox/raw/operational_data/customers_stream/*.json')
-# Pattern: always load the data from an external table (raw) and transform and write back to managed/delta tables (bronze/silver/gold)
 ```
 
 2) Transform Data
 
-Adding two new columns befrore writing back to the Sink - `file_path` and `ingestion_time`
+Adding two new columns before writing back to the Sink - `file_path` and `ingestion_time`
 
 ```python
-df_transformed = df.withColumn('file_path', col('_metadata.file_path')).withColumn('ingestion_date', current_timestamp())
+df_transformed = df.withColumn('file_path', col('_metadata.file_path')) \  
+    .withColumn('ingestion_date', current_timestamp())   # _metadata.file_name: returns only name of the source file
 ```
 
 3) Write Stream via DataStream Writer API
 
-`.format('delta')`: Writing to a managed/delta table
+`.format('delta')`: Writing as delta files
 `.option('checkpointLocation', path)`: Required. The location where the checkpoints will be stored. Must be unique - two streams cannot share
-`.toTable(catalog.schema.table)`: Writing the managed/delta table
+`.toTable(catalog.schema.table)`: Writing to a managed table
 
 ```python
 streaming_query = df_transformed.writeStream \
@@ -93,20 +95,20 @@ Superseded 'once=True' trigger - Everything available across MULTIPLE micro-batc
 5) `trigger(continuous="2 seconds")` — experimental
 
 No micro-batches at all. Allows ultra-low latency (~ms) by processing per-row. The time-interval argument is how often the CHECKPOINT is written; not how often data is processed.
-Should not be used for Production workloads.
+Should NOT be used for Production workloads.
 
 ## Output Mode
 
 `.outputMode()` is a method on the DataStream Writer API which controls how the processed data is written to the sink
 
-1) `.outMode(append)` - Default
+1) `.outputMode(append)` - Default
 
-Writes only the new rows that have arrived since the last micro-batch. Used well with operations like `filter`. 
-Does not allow aggregate functions since they require updating previous rows as wel.
+Writes only the new rows that have arrived in the table and does not support updating existing ones. Used well with operations like `filter`. 
+Does not allow aggregate functions like `count()` since they require updating previous rows.
 
-2) `.outMode(update)`: Writes rows that have changed since the last micro-batch
+2) `.outputMode(update)`: Writes new rows as well as updates existing rows; allows aggregate functions
 
-3) `.outMode(complete)`: Re-writes the entire table; allows aggregate functions
+3) `.outputMode(complete)`: Re-writes the entire table; allows aggregate functions
 
 ## Checkpoints
 

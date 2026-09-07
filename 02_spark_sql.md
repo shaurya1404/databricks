@@ -147,8 +147,8 @@ FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
 Enables auditing capabilities to trace data lineage
 
 ```sql
-SELECT input_file_name() AS depr_file_path, -- Deprecated
-    _metadata.file_name AS file_path,
+SELECT input_file_name() AS depr_file_name, -- Deprecated
+    _metadata.file_name AS file_name, -- _metadata.file_path: returns full URI of source file
     *
 FROM json.`/Volumes/gizmobox/raw/operational_data/customers`
 ```
