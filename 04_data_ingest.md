@@ -4,7 +4,7 @@ Until now, we've used the DataFrame Reader and DataStream Reader APIs to ingest 
 
 ## The Data Ingestion Layered Stack
 
-The Data Ingestion tools in Databricks can be represented as a layered stack with a trade-off between abstraction and controllability:
+The Data Ingestion tools in Databricks can be represented as a hierarchy with a trade-off between abstraction and controllability:
 
 Spark Structured Streaming -> Lakeflow Spark Declarative Pipelines (SDP) -> Lakeflow Connect managed connectors
 Low Abstraction, High Controllability -> High Abstraction, Low Controllability
@@ -31,7 +31,7 @@ Auto Loader is a Spark Structured Streaming source accessed using `cloudFiles` t
 
 ### Why Auto Loader?
 
-Why use Auto Loader to ingest data from cloud storage if we already have the vanilla Structured Streaming DataStream Reader?
+Why use Auto Loader to ingest data from cloud storage if we already have the traditional Streaming DataStream Reader API?
 
 1) No Incremental Loading: Vanilla Structured Streaming performs full table scans on entire directories to detect new files. This is slow and inefficient when dealing with millions of files.
 
@@ -41,7 +41,7 @@ Why use Auto Loader to ingest data from cloud storage if we already have the van
 
 Auto Loader solves the above limitations of the traditional DataStream Reader API via:
 
-1) Supports Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full tabel scan of the directory, it leverages a Cloud Queue to detect new files
+1) Supports Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full tabel scan of the directory, it leverages a Cloud Queue to detect new files.
 
 2) RocksDB: A distributed key-value store which supersedes storing the entire file list in-memory in the Driver node - enables infinite scalability
 
@@ -56,7 +56,7 @@ Using `.format('cloudFiles')` to use Auto Loader
 ```python
 df = spark.readStream \
     .format('cloudFiles') # Selects Auto Loader as the streaming source
-    .option('cloudFiles.format', 'json') # Required: Format of files being used - json, csv, parquet, text, binaryFile, etc.
+    .option('cloudFiles.format', 'json') # Required: Format of source files - json, csv, parquet, text, binaryFile, etc.
     .option('cloudFiles.schemaLocation','/Volumes/gizmobox/raw/operational_data/customers_autoloader/_schema') # Directory for inferred schema
     .option('cloudFiles.inferColumnTypes', 'true') # Infer schema types. If not given, stores all column types as Strings
     .option('cloudFiles.schemaHints', 'created_timestamp TIMESTAMP, date_of_birth DATE, member_since DATE') # DDL types if inferred is incorrect
@@ -79,11 +79,11 @@ streaming_query = df_transformed.writeStream \
 
 More Auto Loader options to be familiar with:
 
-`.option('cloudFiles.modifiedBefore', Timestamp)`: Optional filter to ingest files having a modification timestamp before the given one
-`.option('cloudFiles.modifiedAfter', Timestamp)`: Optional filter to ingest files having a modification timestamp before the given one
-`.option('pathGlobFilter', 'customers_2024_*.json')`: Optional filter to ingest file names matching the given pattern
+`.option('modifiedBefore', TIMESTAMP)`: Optional filter to ingest files having a modification timestamp before the given one
+`.option('modifiedAfter', TIMESTAMP)`: Optional filter to ingest files having a modification timestamp after the given one
+`.option('pathGlobFilter', 'customers_2024_*.json')`: Optional filter to ingest file names matching the given pattern. Same as `'fileNamePattern'`
 
-***Note***" These don't have the `cloudFiles.` prefix since these are inherited from Structured Streaming, not an Auto Loader invention
+***Note***: These don't have the `cloudFiles.` prefix since these are inherited from Structured Streaming, not an Auto Loader invention
 
 ### Schema Evolution in Auto Loader
 
@@ -94,13 +94,13 @@ It performs schema inference on the latest micro-batch and updates the schema lo
 
 The following modes are supported for Schema Evolution set by `.option('cloudFiles.schemaEvolutionMode', mode)`
 
-1) addNewColumns (Default): Stream fails. New columns are added to the schema automatically after restarting.
+1) `addNewColumns` (Default): Stream fails. New columns are added to the schema automatically after restarting.
 
-2) failOnNewColumns: Stream fails. Stream does not restart unless the schema is manually updated or offending file is removed
+2) `failOnNewColumns`: Stream fails. Stream does not restart unless the schema is manually updated or offending file is removed
 
-3) rescue: Stream continues. New columns aren't evolved into the schema - instead they're added to the `_rescue_date` column
+3) `rescue`: Stream continues. New columns aren't evolved into the schema - instead they're added to the `_rescue_date` column
 
-4) none: Stream continues. Schema does not evolve and new columns are ignored. New data is not rescurd either
+4) `none`: Stream continues. Schema does not evolve and new columns are ignored. New data is not rescurd either
 
 ***Note***: `cloudFiles.schemaEvolutionMode` and `mergeSchema` are similar but deal with opposite ends of the pipeline
 
@@ -109,13 +109,13 @@ The following modes are supported for Schema Evolution set by `.option('cloudFil
 
 ## Event Streaming
 
-A database table stores the CURRNT STATE of data (customer 42 has address X). An event stream stores events which are essentially FACTS (customer 42 changed address to X at 14:03). A Fact stores both the CURRENT STATE and the LOG of the changes that lead to the current state. 
+A database table stores the CURRENT STATE of data (customer 42 has address X). An event stream stores Events, i.e, FACTS (customer 42 changed address to X at 14:03). An Event stores both the CURRENT STATE and the LOG of the changes that lead to the current state. 
 
 An event stream is immutable and append-only.
 
 ## Kafka
 
-Kafka is a storage platform for event streaming - essentially an append-only log. 
+Kafka is a storage platform for event streaming - essentially, an append-only log. 
 Unlike a queue, reading of events is non-destructive. The data stays for a retention period until which each consumer can access it independently.
 
 Initializing a Kafka Connector is similar to Auto Loader - accessed via the DataStream API as a source:
@@ -131,14 +131,14 @@ df = (spark.readStream
 df_parsed = df.selectExpr("CAST(value AS STRING)") # Kafka returns data in BINARY which must be casted to STRING before further transformations
 ```
 ***Note***: The event streaming platform for Azure is 'Event Hubs'. The structure of the code remains almost identical as the above.
-After applying the minimal transformations, the data is usually stored in a Delta table in the Bronze schema.
+After applying minimal transformations, the data is usually stored in a Delta table in the Bronze schema.
 
 ## Lakeflow Connect Managed Connector
 
-Managed Connectors are fully-managed solutions to ingest data provided by Databricks from Saas (Salesforce, Workday ) and Databases (MySQl, PostgreSQL).
+Managed Connectors are fully-managed solutions to ingest data provided by Databricks from Saas (Salesforce, Workday) and Databases (MySQl, PostgreSQL).
 
 - SaaS Applications exspose their data through APIs which is accessed via a Connection in Databricks.
-- A Connection is defined as a UC Object within Databricks, allowing governance and reusability across different pipelines.
+- A Connection is defined as a UC Object within Databricks allowing access and governance of data in an external system.
 - Under the hood, Databrick connects to the API via HTTPS
 - Once connected, the Ingestion Pipeline runs on Serverless compute and is fully managed by Databricks handling incremental ingestion, managing failures, and writting data into the Lakehouse (Delta tables in the Bronze layer)
 
@@ -146,7 +146,7 @@ The 4-Component Architecture of a SaaS Managed Connector:
 
 1) Source (SaaS Tables where the data is to be ingested from                            - Account and Contact tables in SF)
 2) Connection (The UC Object that connects Databricks to the SaaS to access the Source  - lakeflow_man_conn_salesforce)
-3) Ingestion Pipeline (The fully manaed pipeline itself within Databricks              - managed_ingestion_pl_salesforce)
+3) Ingestion Pipeline (The fully-managed pipeline in Databricks that ingests the data   - managed_ingestion_pl_salesforce)
 4) Destination (The Delta Table where the transformed data from the Pipeline is stored  - databricks_learning_ws.bronze.tables)
 
 The 6-Component Architecture of a Database Managed Connector:
@@ -155,13 +155,13 @@ The 6-Component Architecture of a Database Managed Connector:
 2) Connection (UC Object that stores credentials to connect to the Database)
 
 There are two mechanisms provided by databases that track changes that have occured to the data so that we don't need to perform a full-table scan everytime just to detect which records have been inserted, updated, or deleted:
-- Change Data Capture:  Logs values of the rows that changed. Does not require a Primary Key but heavyweight for the Source database
-- Change Tracking:      Logs only which rows changed. Requires a Primary Key but lightweight for the Source database
+- Change Data Capture:  Tracks values of the rows that changed. Does not require a Primary Key but heavyweight for the Source database
+- Change Tracking:      Tracks only which rows changed. Requires a Primary Key but lightweight for the Source database
 
 If both are enabled by the Source Database, it is recommended to use Change Tracking
 
 3) Ingestion Gateway (Continuously captures the changes to the data from CDC/CT - runs only on Classic compute)
-4) Staging Storage (A UC Catalog Volume that temporarily stores the changes read by the Ingestion Gateway)
+4) Staging Storage (A UC Volume that temporarily stores the changes read by the Ingestion Gateway)
 5) Ingestion Pipeline (Fully managed pipeline within Databricks that processes the stored data - runs on Serverless compute)
 
 The Staging Storage acts as the buffer between data capture and processing - the Ingestion Gateway must run in continuous mode to avoid changes being lost from the CDC/CT but the Ingestion Pipeline may run periodically as it processes the changes stored in the Staging Storage. This also allows the fully managed pipelines to run on Serverless compute.

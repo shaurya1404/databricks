@@ -12,7 +12,7 @@ Using Delta Lake format enables ACID Transaction capabilities in the storage lay
 ACID Transactions imply that concurrent transactions can be carried out without affecting the integrity of the data.
 
 Data files are written first, THEN made visible by one atomic log commit. The commit isn't made on partial transactions. That one commit is the atomic switch:
-- Atomicity: Until the commit, none of the new files are visible. Commit made only AFTER the entire operation is successful
+- Atomicity: Until the commit, none of the new files are visible. Partially-written files are not visible to readers
 - Consistency: Schema is recorded in the log and enforced on every write operation
 - Isolation: Readers see distinct versions of the storage layer such as N or N+1 - never a transient state
 - Durability: Log is stored in durable cloud storage
@@ -23,16 +23,16 @@ Data files are written first, THEN made visible by one atomic log commit. The co
 
 4) Unified Solution: Delta Lake enables a single solution of data for both Batch and Stream processing as they exist on the same `spark` API.
 
-5) Support for DML Operations: Traditional Data Lakes were not efficient with ingesting incremental data nor updating existing records. Delta Lakes support all DML operations such as Insert, Update, and Delete
+5) Support for DML Operations: Traditional Data Lakes were not efficient with ingesting incremental data nor updating or deleting existing records. Delta Lakes support all DML operations such as Insert, Update, and Delete
 
 ## Delta Lake Architecture
 
 1) Data Storage = Parquet Files + Delta/Transaction Log
 
-Parquet - Columnar binary file format
-Transaction Log - JSON file that records every transaction performed on the file
+Parquet - Columnar Binary file format
+Transaction Log - Directory that records every transaction performed in JSON files
 
-The transaction log differentiates Delta Lake from Data lake as it enables ACID transactions, time travel, and versioning
+The transaction log differentiates Delta Lake from Data Lake as it enables ACID transactions, time travel, and versioning
 
 2) Unity Catalog Delta Table: UC Object built on top of the Data Storage layer that enables data governance and security
 
@@ -106,7 +106,7 @@ Restoring to a previous version creates a new transaction log file (`00000000000
 Important Characteristics of a Delta Table that enable ACID Transactions:
 
 1) Transaction log files are written only at the end of the transaction
-2) The transaction log is the single source of truth for all readers of the Delta lake that describes which files are available to read
+2) The transaction log is the single source of truth for all readers of the Delta Lake
 
 ### Scenario 1 - Concurrent Write and Read Operations (Isolation)
 
@@ -146,7 +146,7 @@ TBLPROPERTIES ('sensitive' = 'true', 'delta.enableDeletionVectors'= 'false')
 2) Column Properties
 
 - NOT NULL: NULLable by default
-- COMMENT: per-column comments
+- COMMENT: per-column documentation
 
 ```sql
 CREATE TABLE IF NOT EXISTS demo.delta_lake.companies (
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS demo.delta_lake.companies (
 
 ## Create Or Replace vs Drop and Create
 
-The difference between `CREATE OR REPLACE` and `DROP - CREATE` lies in whether the transaction log is cleared or not. In the former, the table history is preserved. In the latter, it's reset every time.
+The difference between `CREATE OR REPLACE` and `DROP - CREATE` lies in whether the transaction log is cleared or not. In the former, the table's history is preserved. In the latter, it's reset every time.
 
 ```sql
 DROP TABLE IF EXISTS demo.delta_lake.companies;
@@ -217,7 +217,8 @@ Re-executing the above appends two rows (CREATE OR REPLACE and WRITE) in the his
 
 ## CTAS
 
-Create Table As Select (CTAS) allows creating a new table based on a `SELECT` query
+A vanilla `CREATE TABLE` requires defining the schema for the table and creates an empty one.
+A `CREATE TABLE AS SELECT` (CTAS) infers the schema from the column names and types in the `SELECT` and inserts the data returned from the query.
 
 ```sql
 CREATE TABLE demo.delta_lake.companies_china
@@ -236,7 +237,7 @@ CTAS Statements do not allow setting Column Properties directly such as Casting 
 ```sql
 CREATE TABLE demo.delta_lake.companies_china
 AS
-SELECT *
+SELECT company_name, CAST(founded_date AS STRING), country
 FROM demo.delta_lake.companies
 WHERE country = 'China'
 ```
@@ -267,14 +268,14 @@ INSERT OVERWRITE demo.delta_lake.gold_companies
 SELECT * FROM demo.delta_lake.bronze_companies
 ```
 
-Overwriting the existing the data in the gold schema table with the data currently sitting in the bronze schema. The transaction log tracks this as a new version.
+Overwriting the existing data in the gold schema table with the data currently sitting in the bronze schema. The transaction log tracks this as a new version.
 
 ### Overwrite in a specific Partition
 
 Partitioning splits the table's storage by column value. In the Delta table, each partitioned value gets its own directory which contains parquet files pertaining to that column's value only
 
 `/gold_companies_partitoned/country=China/part-0000.parquet`
-`/gold_companies_partitoned/event_date=USA/part-0000.parquet`
+`/gold_companies_partitoned/country=USA/part-0000.parquet`
 
 Partitioning relsults in better query performance when filtering on the column partitioned by as the engine can overlook the directories that don't match the column's values we filtered on.
 An index is a separate B-tree structure that maps values to individual records. Whereas, partitioning is breaking the the large table into smaller distinct tables based on a column's values
@@ -298,8 +299,6 @@ INSERT INTO demo.delta_lake.gold_companies_partitioned
 VALUES
 ('Microsoft', '1975-04-04', 'USA'),
 ('Alibaba', '1999-07-01', 'China');
-
-SELECT * FROM demo.delta_lake.gold_companies_partitioned
 ```
 
 Now, overwriting the partition for country='USA' without affecting data in 'China'
@@ -311,7 +310,8 @@ SELECT company_name, founded_date -- PARTITIONED column's value is implicitly ad
 FROM demo.delta_lake.bronze_companies_usa;
 ```
 
-***Note***: Use `CREATE OR REPLACE` when overwriting data in which the schema has changed. The new data has to have the same schema for INSERT OVERWRITE to work
+***Note***: The new data has to have the same schema for `INSERT OVERWRITE` to work - It's an INSERT operation.
+Use `CREATE OR REPLACE` when overwriting data in which the schema has changed - It's a CREATE operation. 
 
 ## COPY INTO
 
@@ -337,7 +337,7 @@ COPY_OPTIONS: How to write to the destination
 
 Therefore:
 1) Same records in two different files -> duplicates
-2) Renaming/modifying (modificationTime updates in _delta_log) a file -> identified as new file
+2) Renaming/modifying (modificationTime updates in _delta_log) -> identified as new file
 
 ## MERGE
 
@@ -358,4 +358,3 @@ WHEN NOT MATCHED THEN
 ```
 
 ***Note***: Refer to the Notebook on MERGE for the practical example
-
