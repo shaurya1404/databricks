@@ -120,8 +120,8 @@ Checkpoint storage locations must be unique - The same checkpoint location canno
 
 BEFORE a micro-batch starts, Spark records the offset of the current batch and writes it to the Write-Ahead Log. AFTER the batch has fully executed and the sink write succeeds, Spark writes to the Commit log. This file means one thing: batch N is done, never redo it.
 
-Ona subsequent micro-batch, Spark first reads the Write-Ahead log and the Commit log of the previous batch; if they match, data processing begins from the END of the previous batch. If they don't match, data processing begins from the START of the previous batch.
+On subsequent micro-batches, Spark first reads the Write-Ahead log and the Commit log to look for the most recent micro-batch that matches in the two logs; if they match, data processing begins from the END of that batch. If they don't match, data processing begins from the START of that batch.
 
 2) Idempotent Sinks
 
-Such sinks include Delta, Lake, and Kafka. They enable 'once guarantees' as it ensures data is not written multiple times to the sink by ignoring the duplicates. In non-idempotent sinks, dedup must be handled manually.
+Such sinks include Delta, Lake, and Kafka. They enable 'exactly once guarantees' of the records via Checkpoints (avoid 0 commit of records) and atomic commits to the Transaction Log (avoid more than 1 commits of records)
