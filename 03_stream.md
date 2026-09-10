@@ -108,7 +108,7 @@ Does not allow aggregate functions like `count()` since they require updating pr
 
 2) `.outputMode(update)`: Writes new rows as well as updates existing rows; allows aggregate functions
 
-3) `.outputMode(complete)`: Re-writes the entire table; allows aggregate functions
+3) `.outputMode(complete)`: Overwrites the entire table; allows aggregate functions
 
 ## Checkpoints
 
@@ -124,4 +124,4 @@ On subsequent micro-batches, Spark first reads the Write-Ahead log and the Commi
 
 2) Idempotent Sinks
 
-Such sinks include Delta, Lake, and Kafka. They enable 'exactly once guarantees' of the records via Checkpoints (avoid 0 commit of records) and atomic commits to the Transaction Log (avoid more than 1 commits of records)
+Such sinks include Delta, Lake, and Kafka. They enable 'exactly once guarantees' of the records via Checkpoints (avoid 0 commit of records) and atomic commits to the Transaction Log of only the successful files (avoid more than 1 commits of records)

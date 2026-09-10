@@ -107,9 +107,9 @@ Can be divided into 2 types:
 
 ### Cluster Config Options in Classical Compute
 
-1) Single vs Multi Node: Driver has one or more worker nodes OR a single node is both the driver and the worker. Unlike multi-node clusters, single node clusters do not support process isolation and not intended for sharing of cluster with other users. 
+1) Single vs Multi Node: Driver has one or more worker nodes OR a single node is both the driver and the worker. Unlike multi-node clusters, single node clusters do not sharing of the cluster nor process isolation. 
 
-2) Access Mode (Dedicated vs Standard): Who can access the cluster? Dedicated allows only one user to access the cluster. Standard clusters allows sharing the cluster among multiple users and support process isolation.
+2) Access Mode (Dedicated vs Standard): Who can access the cluster? Dedicated allows only one user to access the cluster. Standard clusters allows sharing the cluster among multiple users and supports process isolation.
 
 3) Databricks Runtime(Databricks Runtime vs Databricks Runtime ML): The software specs & core libraries that run uniformaly in a cluster.
 - Databricks Runtime = Apache Spark + Supporting libraries + Photon
