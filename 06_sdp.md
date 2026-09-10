@@ -96,6 +96,8 @@ It is used to modularize and re-use logic within the pipeline that's be used mul
 The Landing layer will receive files of the format day1, day2,...
 The files will only include data of records from a specific day and hence, must be incrementally loaded. Thus, using Auto Loader to incrementally ingest files from the cloud storage.
 
+***Note***: We can pass now the three-level namespace `circuitbox.bronze.customers` in the following CTAS statement as multiple schemas are now supported in Declarative Pipeline instead of having to store all three bronze, silver, and gold layers in the same 'lakehouse' schema configured in the Pipeline Settings.
+
 ```sql
 CREATE OR REFRESH STREAMING TABLE bronze_customers
     COMMENT 'Raw customer data ingested from the source volume operational data'
@@ -122,3 +124,33 @@ To configure ETL Pipeline -> Pipeline Settings
 1) Auto-termination: In the development mode, the Job Cluster is kept running even after the pipeline run finishes for a certain time duration (default = 2hrs) which can be changed via the TBLPROPERTIES key-value pair 'pipelines.clusterShutdown.delay'. This allows debugging between runs without needing to restart the cluster everytime. In the production mode, the cluster is terminated immediately after every run to minimize infrastructure costs.
 
 2) Automatic retries: In development workloads, retries are disabled by default since errors are expected but enabled by default in production workloads.
+
+## Process Customers Data - Silver Layer
+
+`FROM bronze_customers` overwrites the entire data in the destination table with all the current files in the source. That makes the query a batch query, which means the target can only be a materialized view. You can't build a streaming table from it — the pipeline will reject the definition.
+
+`FROM STREAM(bronze_customers)`: Enables stream read, i.e, incremental loading of data from the source. The engine keeps a checkpoint recording how far into bronze_customers' transaction log it has read. On each run it picks up from that offset and processes only the rows appended since.
+
+**Expectations**: Optional clause to perform Data Quality Checks. Written via the `CONSTRAINT` clause in materialized view, streaming table, or view creation statements that apply predicate expressions on each record from the source.
+
+```sql
+CONSTRAINT expectation_name                   -- name
+EXPECT (predicate_expression)                 -- predicate that must be TRUE
+[ON VIOLATION (FAIL UPDATE | DROP ROW)]       -- optional: WARN is the default
+```
+
+Transforming (CASTS) and performing data quality checks (CONSTRAINTS) on the data from the `bronze_customers` table and storing in the `silver_customers_cleaned` table. Both are Streaming Delta Tables btw.
+
+```sql
+CREATE OR REFRESH STREAMING TABLE silver_customers_clean (
+    CONSTRAINT valid_customer_id EXPECT (customer_id IS NOT NULL) ON VIOLATION FAIL UPDATE,
+    CONSTRAINT valid_customer_name EXPECT (customer_name IS NOT NULL) ON VIOLATION DROP ROW,
+    CONSTRAINT valid_telephone EXPECT (LENGTH(telephone) >= 10),
+    CONSTRAINT valid_email EXPECT (email IS NOT NULL),
+    CONSTRAINT valid_date_of_birth EXPECT (date_of_birth >= '1920-01-01')
+)
+COMMENT 'Cleaned data with data quality checks for the silver layer'
+TBLPROPERTIES ('quality' = 'silver')
+AS SELECT customer_id, customer_name, CAST(date_of_birth AS DATE), telephone, email, CAST(created_date AS DATE)
+FROM STREAM(bronze_customers)
+```
