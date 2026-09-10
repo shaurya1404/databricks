@@ -96,7 +96,11 @@ It is used to modularize and re-use logic within the pipeline that's be used mul
 The Landing layer will receive files of the format day1, day2,...
 The files will only include data of records from a specific day and hence, must be incrementally loaded. Thus, using Auto Loader to incrementally ingest files from the cloud storage.
 
-***Note***: We can pass now the three-level namespace `circuitbox.bronze.customers` in the following CTAS statement as multiple schemas are now supported in Declarative Pipeline instead of having to store all three bronze, silver, and gold layers in the same 'lakehouse' schema configured in the Pipeline Settings.
+***Note***: We can now pass the three-level namespace `circuitbox.bronze.customers` in the following CTAS statement as multiple schemas are now supported in Declarative Pipeline instead of having to store all three bronze, silver, and gold layers in the same target 'lakehouse' schema that is configured in the Pipeline Settings.
+
+To configure: ETL Pipeline -> Pipeline Setting
+
+***Note***: A Declarative Pipeline only accepts SDP notebooks written either in SQL or in Python, not both. The individual notebooks can be either but all the cells within a notebook must be in the same language.
 
 ```sql
 CREATE OR REFRESH STREAMING TABLE bronze_customers
@@ -113,23 +117,27 @@ FROM cloud_files(
 )
 ```
 
-The `OR REFRESH` is what makes this an SDP Notebook rather than a Spark Notebook; first run of the pipeline creates the table, every subsequent run updates it incrementally.
+The `OR REFRESH` is what makes this statement idempotent; first run of the pipeline creates the table, every subsequent run appends to it incrementally via the checkpoints (streaming table) or re-writes the table (materialized view).
 
-To configure ETL Pipeline -> Pipeline Settings
+The `STREAMING TABLE` ensures that this is a streaming table by validating that the `AS SELECT` statement is a streaming query such as `cloud_files(...)` or `STREAM()`. A plain batch read will be rejected.
 
-***Note***: A Declarative Pipeline only accepts SDP notebooks written either in SQL or in Python, not both. The individual notebooks can be either but all the cells within a notebook must be of the same language
+Hence `CREATE OR REFRESH STREAMING TABLE x` is an idempotent declaration that x is a checkpointed Delta table fed by a streaming query — created on first run, incrementally appended on every run after, never rebuilt unless you explicitly force a Full Refresh via the Pipeline UI.
+
+Notice that the Declarative Pipeline requires defining the dataset itself but abstracts away its management: `.outputMode(append)` implied by `STREAMING`. `.option("checkpointLocation", ...)` is managed by the pipeline. `.trigger(...)` moved to pipeline configuration. DAG ordering is handled as the `bronze_customers` appears in silver's `FROM` clause.
 
 **Development vs Production Pipeline Mode**
 
-1) Auto-termination: In the development mode, the Job Cluster is kept running even after the pipeline run finishes for a certain time duration (default = 2hrs) which can be changed via the TBLPROPERTIES key-value pair 'pipelines.clusterShutdown.delay'. This allows debugging between runs without needing to restart the cluster everytime. In the production mode, the cluster is terminated immediately after every run to minimize infrastructure costs.
+1) Auto-termination: In development mode, the Job Cluster is kept running even after the pipeline run finishes (default = 2hrs) which can be altered via the `pipelines.clusterShutdown.delay` prpoerty in `TBLPROPERTIES`. This allows debugging between runs without needing to restart the cluster everytime. In production mode, the cluster is terminated immediately after every run to minimize infrastructure costs.
 
-2) Automatic retries: In development workloads, retries are disabled by default since errors are expected but enabled by default in production workloads.
+2) Auto retries: In development mode, retries are disabled by default since errors are expected but enabled by default in production mode.
 
 ## Process Customers Data - Silver Layer
 
-`FROM bronze_customers` overwrites the entire data in the destination table with all the current files in the source. That makes the query a batch query, which means the target can only be a materialized view. You can't build a streaming table from it — the pipeline will reject the definition.
+`FROM bronze_customers` peforms a batch load, i.e, overwrites the dataset in the destination table with all the current files in the source. Thus, the target can only be a materialized view. You can't build a streaming table from it — the pipeline will reject the definition.
 
-`FROM STREAM(bronze_customers)`: Enables stream read, i.e, incremental loading of data from the source. The engine keeps a checkpoint recording how far into bronze_customers' transaction log it has read. On each run it picks up from that offset and processes only the rows appended since.
+`FROM STREAM(bronze_customers)` enables stream read on tables, i.e, incremental loading of data from the source table. The engine keeps a checkpoint recording how far into bronze_customers' transaction log it has read. On each run it picks up from that offset and processes only the rows appended since.
+
+`cloud_files(...) vs STREAM(...)`: The Auto Loader enables incremental loading from FILES. Whereas, STREAM() enables incremental loading from TABLES.
 
 **Expectations**: Optional clause to perform Data Quality Checks. Written via the `CONSTRAINT` clause in materialized view, streaming table, or view creation statements that apply predicate expressions on each record from the source.
 
@@ -151,6 +159,7 @@ CREATE OR REFRESH STREAMING TABLE silver_customers_clean (
 )
 COMMENT 'Cleaned data with data quality checks for the silver layer'
 TBLPROPERTIES ('quality' = 'silver')
-AS SELECT customer_id, customer_name, CAST(date_of_birth AS DATE), telephone, email, CAST(created_date AS DATE)
+AS 
+SELECT customer_id, customer_name, CAST(date_of_birth AS DATE), telephone, email, CAST(created_date AS DATE)
 FROM STREAM(bronze_customers)
 ```
