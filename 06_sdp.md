@@ -206,3 +206,52 @@ SEQUENCE BY created_date
 STORED AS SCD TYPE 1;
 ```
 
+## Process Addresses Data - Python
+
+SDP is implemented using Python via the `pipelines` module in PySpark which is conventionally aliased as `dp`
+`from pyspark import pipelines as dp`
+
+One decorator + One function = One dataset
+
+Decorators declare the dataset type and must use their corresponding method for readng from the source:
+1) Streaming Table = `@dp.table` + `spark.readStream`
+2) Materialized View = `@dp.materialized_view` + `spark.read`
+3) Temporary View = `@dp.temporary_view` + `spark.read`
+
+- The name of the function that the decorator wraps is assumed as the target table's name if a 'name' argument is not passed in the decorator.
+- The function must always RETURN A DATAFRAME
+
+### Syntax
+
+```python
+from pyspark import pipelines as dp
+
+@dp.table()
+def function_name():
+    **PySpark Code to Read Source Data & Apply Transformations**
+    return <dataframe>
+```
+
+Incrementally ingesting data from cloud files via Auto Loader and writing in the 'bronze_addresses' streaming table
+
+```python
+from pyspark import pipelines as dp
+from pyspark.sql.functions import *
+
+@dp.table(
+    name = 'bronze_addresses',
+    comment = 'This table ingests data from the cloud files to the bronze layer',
+    table_properties = {'quality': 'bronze'}
+)
+
+def created_bronze_addresses():
+    return (
+        spark.readStream \
+        .format('cloudFiles') \
+        .option('cloudFiles.format', 'csv') \
+        .option('cloudFiles.inferColumnTypes', 'true') \
+        .load('/Volumes/circuitbox/landing/operational_data/addresses/') # .load() returns a DataFrame from the Reader API; DF methods go after it
+        .withColumn('file_path', col('_metadata.file_path')) \
+        .withColumn('ingestion_timestamp', current_timestamp())
+    )
+```
