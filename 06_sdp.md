@@ -163,3 +163,46 @@ AS
 SELECT customer_id, customer_name, CAST(date_of_birth AS DATE), telephone, email, CAST(created_date AS DATE)
 FROM STREAM(bronze_customers)
 ```
+
+### SCD Type 1 vs Type 2
+
+Slowly Changing Dimensions (SCD) answers one question: When a record in a Dimensions Table changes, what happens to the old record?
+
+- Type 1: One row per key. Overwrite. No History maintained
+- Type 2: Add New Row. Close Old Row. History maintained using columnns such as 'valid_from' and 'valid_to'.
+- Type 3: Rarely used. One row perkey. Add new column that retains only the one prior value from the current one such as 'previous_city'
+
+SDP only supports Type 1 and Type 2
+
+### AUTO CDC (Formerly APPLY CHANGES)
+
+Performs Upsert operations like `MERGE INTO` but allows sorting based on specific columns (SEQUENCE BY clause) instead of naively updating with the most recent value it receives.
+
+```sql
+CREATE OR REFRESH STREAMING TABLE target_table; -- AUTO CDC doesn't create the table
+
+AUTO CDC INTO target_table
+FROM source_table
+KEYS (columns) -- Column(s) used to uniquely identify records
+[APPLY AS DELETE WHEN condition] -- Optional condition to DELETE rows
+[APPLY AS TRUNCATE WHEN condition] -- Type 1 Only (Type 2 preserves history): Optional condition to reset the entire table
+SEQUENCE BY sequence_column -- Column(s) used to sort by for the latest record(s)
+[COLUMNS {column_list | * EXCEPT (except_column_list)}] -- Columns to include in the target table
+[STORED AS {SCD TYPE 1 | SCD TYPE 2}] -- SCD Type Declaration (Default: Type 1)
+[TRACK HISTORY ON {column_list | * EXCEPT (except_column_list)}] -- Type 2 Only: Columns whose changes trigger insertion of new record (Default: All)
+```
+
+Applying changes and updating the Customer's data from the cleaned records that passed the Data Quality Checks.
+
+```sql
+CREATE OR REFRESH STREAMING TABLE silver_customers
+    COMMENT 'Upserting the cleaned data to update the Customers data'
+    TBLPROPERTIES ('quality' = 'silver');
+
+AUTO CDC INTO silver_customers
+FROM STREAM(silver_customers_clean) -- STREAM() since the target_table is a STREAMING TABLE
+KEYS (customer_id)
+SEQUENCE BY created_date
+STORED AS SCD TYPE 1;
+```
+
