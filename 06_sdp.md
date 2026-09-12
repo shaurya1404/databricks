@@ -76,7 +76,9 @@ A materialized view is also a Delta table, but its content is always what the qu
 
 It doesn't allow DML operations since the data in the Delta Table is contingent upon the query - so, to change data in the tables, change the query and re-run.
 
-Used for building aggregate tables for BI reports
+Used for building tables having Aggregate functions
+
+**Pattern**: Bronze, Silver -> Streaming Table; Gold -> Materialized Views
 
 ### Views
 
@@ -96,7 +98,7 @@ It is used to modularize and re-use logic within the pipeline that's be used mul
 The Landing layer will receive files of the format day1, day2,...
 The files will only include data of records from a specific day and hence, must be incrementally loaded. Thus, using Auto Loader to incrementally ingest files from the cloud storage.
 
-***Note***: We can now pass the three-level namespace `circuitbox.bronze.customers` in the following CTAS statement as multiple schemas are now supported in Declarative Pipeline instead of having to store all three bronze, silver, and gold layers in the same target 'lakehouse' schema that is configured in the Pipeline Settings.
+***Note***: We can now pass the three-level namespace `circuitbox.bronze.customers` in both SDP SQL and SDP Python as multiple schemas are now supported in Declarative Pipelines instead of having to store all three bronze, silver, and gold layers in the same default 'lakehouse' schema that is configured in the Pipeline Settings.
 
 To configure: ETL Pipeline -> Pipeline Setting
 
@@ -241,7 +243,7 @@ from pyspark import pipelines as dp
 from pyspark.sql.functions import *
 
 @dp.table(
-    name = 'bronze_addresses',
+    name = 'bronze_addresses', # New Update: Multiple Schemas supported via the three-level namespace instead of just the default one configured
     comment = 'This table ingests data from the cloud files to the bronze layer',
     table_properties = {'quality': 'bronze'}
 )
@@ -401,3 +403,22 @@ def silver_orders():
 ```
 
 No Auto CDC required since the Orders Data is not maintained as a SCD Table - Orders are expected to not change over time
+
+## Create Customer Order Summary - Gold Layer
+
+The final gold layer joins all three tables to yield every customer, their current address, and a summary of their orders. The summary of the orders will be calculated using aggregate functions - hence, a Materialized View will be used since it allows Aggregations. 
+
+Materilaized Views make use of the optimizer called Enzyme to determine whether the current pipeline run requires incremental loading or a Full Refresh of the table.
+
+```sql
+CREATE OR REFRESH MATERIALIZED VIEW gold_customer_order_summary
+AS
+SELECT c.customer_id, c.customer_name, c.date_of_birth, c.telephone, c.email, a.address_line_1, a.city, a.state, a.postcode,
+        COUNT(DISTINCT order_id) AS total_orders, -- DISTINCT since we exploded the items array - order IDs may appear more than once
+        SUM(item.quantity) AS total_items, SUM(item.quantity * item.price) AS total_amount
+FROM customers c 
+    JOIN addresses a ON c.customer_id = a.customer_id
+    JOIN orders o ON c.customer_id = o.customer_id
+WHERE a.__END_AT IS NULL -- since Addresses is a SCD Type 2, we want the most recent one
+GROUP BY ALL -- shorthand syntax in Spark SQL to GROUP BY all columns in SELECT except Aggregated ones
+```
