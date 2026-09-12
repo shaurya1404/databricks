@@ -410,8 +410,12 @@ The final gold layer joins all three tables to yield every customer, their curre
 
 Materilaized Views make use of the optimizer called Enzyme to determine whether the current pipeline run requires incremental loading or a Full Refresh of the table.
 
+Created using the same 
+
 ```sql
 CREATE OR REFRESH MATERIALIZED VIEW gold_customer_order_summary
+COMMENT 'Customer-level order summary stored in Delta Tables via Materialized Views'
+TBLPROPERTIES ('quality' = 'gold')
 AS
 SELECT c.customer_id, c.customer_name, c.date_of_birth, c.telephone, c.email, a.address_line_1, a.city, a.state, a.postcode,
         COUNT(DISTINCT order_id) AS total_orders, -- DISTINCT since we exploded the items array - order IDs may appear more than once
