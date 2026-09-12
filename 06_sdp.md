@@ -91,7 +91,7 @@ It is used to modularize and re-use logic within the pipeline that's be used mul
 - Customers, Orders: JSON
 - Addresses: CSV
 
-## Process Customers Data - Bronze Layer
+## Process Customers Data - SDP SQL
 
 The Landing layer will receive files of the format day1, day2,...
 The files will only include data of records from a specific day and hence, must be incrementally loaded. Thus, using Auto Loader to incrementally ingest files from the cloud storage.
@@ -131,7 +131,7 @@ Notice that the Declarative Pipeline requires defining the dataset itself but ab
 
 2) Auto retries: In development mode, retries are disabled by default since errors are expected but enabled by default in production mode.
 
-## Process Customers Data - Silver Layer
+### Process Customers Data - Silver Layer
 
 `FROM bronze_customers` peforms a batch load, i.e, overwrites the dataset in the destination table with all the current files in the source. Thus, the target can only be a materialized view. You can't build a streaming table from it — the pipeline will reject the definition.
 
@@ -139,7 +139,7 @@ Notice that the Declarative Pipeline requires defining the dataset itself but ab
 
 `cloud_files(...) vs STREAM(...)`: The Auto Loader enables incremental loading from FILES. Whereas, STREAM() enables incremental loading from TABLES.
 
-**Expectations**: Optional clause to perform Data Quality Checks. Written via the `CONSTRAINT` clause in materialized view, streaming table, or view creation statements that apply predicate expressions on each record from the source.
+**Expectations**: The Data Quality layer of SDPs. Written via the `CONSTRAINT` clause in materialized view, streaming table, or view creation statements that apply predicate expressions on each record from the source.
 
 ```sql
 CONSTRAINT expectation_name                   -- name
@@ -174,22 +174,22 @@ Slowly Changing Dimensions (SCD) answers one question: When a record in a Dimens
 
 SDP only supports Type 1 and Type 2
 
-### AUTO CDC (Formerly APPLY CHANGES)
+### AUTO CDC INTO (Formerly APPLY CHANGES)
 
-Performs Upsert operations like `MERGE INTO` but allows sorting based on specific columns (SEQUENCE BY clause) instead of naively updating with the most recent value it receives.
+Performs insert/update/delete operations like `MERGE INTO` but allows defining recency based on specific columns (SEQUENCE BY clause) instead of naively updating with the most recent value it sees.
 
 ```sql
 CREATE OR REFRESH STREAMING TABLE target_table; -- AUTO CDC doesn't create the table
 
 AUTO CDC INTO target_table
 FROM source_table
-KEYS (columns) -- Column(s) used to uniquely identify records
-[APPLY AS DELETE WHEN condition] -- Optional condition to DELETE rows
-[APPLY AS TRUNCATE WHEN condition] -- Type 1 Only (Type 2 preserves history): Optional condition to reset the entire table
-SEQUENCE BY sequence_column -- Column(s) used to sort by for the latest record(s)
-[COLUMNS {column_list | * EXCEPT (except_column_list)}] -- Columns to include in the target table
+KEYS (columns) -- Column(s) used to uniquely identify an entity
+[APPLY AS DELETE WHEN condition] -- Optional expression that identifies a row as a delete event
+[APPLY AS TRUNCATE WHEN condition] -- Type 1 Only (Type 2 preserves history): Optional expression for full-table truncation
+SEQUENCE BY sequence_column -- Column(s) defining recency for the latest record
+[COLUMNS {column_list | * EXCEPT (except_column_list)}] -- Columns to include/exclude in the target table
 [STORED AS {SCD TYPE 1 | SCD TYPE 2}] -- SCD Type Declaration (Default: Type 1)
-[TRACK HISTORY ON {column_list | * EXCEPT (except_column_list)}] -- Type 2 Only: Columns whose changes trigger insertion of new record (Default: All)
+[TRACK HISTORY ON {column_list | * EXCEPT (except_column_list)}] -- Type 2 Only: Columns which columns actually trigger a new record (Default: All)
 ```
 
 Applying changes and updating the Customer's data from the cleaned records that passed the Data Quality Checks.
@@ -206,22 +206,22 @@ SEQUENCE BY created_date
 STORED AS SCD TYPE 1;
 ```
 
-## Process Addresses Data - Python
+## Process Addresses Data - SDP Python
 
 SDP is implemented using Python via the `pipelines` module in PySpark which is conventionally aliased as `dp`
 `from pyspark import pipelines as dp`
 
 One decorator + One function = One dataset
 
-Decorators declare the dataset type and must use their corresponding method for readng from the source:
+### Dataset Decorators
+
+Decorators declare the dataset type and ensure their corresponding method for readng from the source is used:
 1) Streaming Table = `@dp.table` + `spark.readStream`
 2) Materialized View = `@dp.materialized_view` + `spark.read`
 3) Temporary View = `@dp.temporary_view` + `spark.read`
 
 - The name of the function that the decorator wraps is assumed as the target table's name if a 'name' argument is not passed in the decorator.
 - The function must always RETURN A DATAFRAME
-
-### Syntax
 
 ```python
 from pyspark import pipelines as dp
@@ -231,6 +231,8 @@ def function_name():
     **PySpark Code to Read Source Data & Apply Transformations**
     return <dataframe>
 ```
+
+### Ingest Addresses Data - Bronze Layer
 
 Incrementally ingesting data from cloud files via Auto Loader and writing in the 'bronze_addresses' streaming table
 
@@ -255,3 +257,95 @@ def created_bronze_addresses():
         .withColumn('ingestion_timestamp', current_timestamp())
     )
 ```
+
+### Expectation Decorators
+
+The decorator type declares which action occurs if a row fails. The key-value pair passed as an argument within the decorator defines the name and the constraint of the expectation.
+
+1) WARN: `dp.expect`, `dp.expect_all`
+2) DROP: `dp.expect_or_drop`, `dp.expect_all_or_drop`
+3) FAIL: `dp.expect_or_fail`, `dp.expect_all_or_fail`
+
+The multiple-contraints syntaxes take a Dictionary as an argument
+
+```python
+from pyspark import pipelines as dp
+
+@dp.table()
+@dp.expect_or_fail('valid_customer_id', 'customer_id IS NOT NULL')
+@dp.expect_all_or_fail({ 'valid_customer_id': 'customer_id IS NOT NULL', 'valid_order_id': 'order_id IS NOT NULL'})
+```
+
+### Perform Data Quality Checks - Silver Layer
+
+```python
+from pyspark import pipelines as dp
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+
+@dp.table(
+    name = 'silver_addresses_clean',
+    comment = 'Performing data qulaity checks before applying changes to addresses data'
+    table_properties = {'quality': 'silver'}
+)
+@dp.expect_or_fail({'valid_customer_id', 'customer_id IS NOT NULL'})
+@dp.expect_or_drop({'valid_address_line_1', 'address_line_1 IS NOT NULL'})
+@dp.expect({'valid_postcode', 'LENGTH(postcode) = 5'})
+
+def create_silver_addresses_clean():
+    return (
+        spark.readStream.table('bronze_addresses') \
+        .withColumn('created_date', col('created_date').cast(DateType()))
+    )
+```
+
+### Applying Changes via AUTO CDC
+
+Performing insert/update/delete operations using the Auto CDC and maintaining the final silver streaming table as a SCD Type 2 (maintains history)
+
+AUTO CDC doesn't create the table, so its definition is a two-part declaration:
+
+```python
+from pyspark import pipelines as dp
+
+# Step 1: declare the target table (empty shell)
+dp.create_streaming_table("target_table")
+
+# Step 2: declare a flow that writes changes into it
+dp.create_auto_cdc_flow( # Formerly dlt.apply_changes()
+    target="target_table",
+    source="source_table",
+    keys=["key1", "key2", "keyN"],
+    sequence_by="<ordering_column>",
+    stored_as_scd_type= 1 | 2
+)
+```
+- Optional Auto CDC arguments:
+`apply_as_deletes` — an expression that identifies a row as a delete event
+`apply_as_truncates` — same, for full-table truncation (SCD Type 1 only)
+`column_list` / `except_column_list` — columns to include/exclude in the target table
+`track_history_column_list` / `track_history_except_column_list` — which columns actually trigger a new version (SCD Type 2 only)
+
+Performing insert/update/delete using Auto CDC to update Addresses data for the Silver Streaming Table maintained as a SCD Type 2
+
+```python
+dp.create_streaming_table (
+    name = 'silver_addresses'.
+    comment = 'This table stores the updated addresses data from the cleaned source'
+    table_properties = {'quality': 'silver'}
+)
+
+dp.create_auto_cdc_flow (
+    target = 'silver_addresses',
+    source = 'silver_addresses_cleaned',
+    keys = ['customer_id'],
+    sequenced_by 'created_date',
+    stored_as_scd_type = 2
+)
+```
+
+## Process Orders Data
+
+1) Ingest into Bronze Layer as a Streaming Table using Auto Loader
+
+```python
