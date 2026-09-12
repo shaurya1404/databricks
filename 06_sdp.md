@@ -349,3 +349,55 @@ dp.create_auto_cdc_flow (
 1) Ingest into Bronze Layer as a Streaming Table using Auto Loader
 
 ```python
+from pyspark import pipelines as dp
+from pyspark.sql.functions import col, current_timestamp
+
+@dp.table(
+    name='bronze_orders'
+    comment='Raw orders data incrementally ingested via Auto Loader'
+    table_properties={'quality' = 'bronze'}
+)
+
+def bronze_orders():
+    return (
+        spark.readStream \
+        .format('cloudFiles')
+        .option('cloudFiles.format', 'json')
+        .option('cloudFiles.inferColumnTypes', 'true')
+        .load('/Volumes/circuitbox/landing/operational_data/orders/')
+        .withColumn('file_path', col('_metadata.file_path'))
+        .withColumn('ingestion_time', current_timestamp())
+    )
+```
+
+2) Peforming Data Quality Checks via Expectations
+
+```python
+from pyspark import pipelines as dp
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+@dp.table(
+    name='silver_orders',
+    comment='Orders data passed through Data Quality Checks',
+    table_properties={'quality': 'silver'}
+)
+@dp.expect_all_or_fail({
+    'valid_customer_id': 'customer_id IS NOT NULL',
+    'valid_order_id': 'order_id IS NOT NULL'
+})
+@dp.expect_all({
+    'valid_order_status': '''order_status IN ('Pending', 'Shipped', 'Cancelled', 'Completed')''',
+    'valid_payment_method': '''payment_method IN ('Credit Card', 'PayPal', 'Bank Transfer')'''
+})
+
+def silver_orders():
+    return (
+        spark.readStream.table('bronze_orders') \
+        .withColumn('order_timestamp', col('order_timestamp').cast(TimestampType()))
+        .withColumn('item', explode(col('items')))
+        .select('order_id', 'order_timestamp', 'customer_id', 'order_status', 'payment_method','item.product_id', 'item.quantity', 'item.price', 'item.category')
+    )
+```
+
+No Auto CDC required since the Orders Data is not maintained as a SCD Table - Orders are expected to not change over time
