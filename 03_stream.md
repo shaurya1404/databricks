@@ -18,7 +18,7 @@ The SparkSession `spark` exposes an API optimized for stream processing that's n
 
 - Spark asks you to imagine stream as a dynamic table which keeps having rows appended to the bottom. 
 - Spark processes the stream as a series of small batch jobs called **micro-batches**. 
-- Spark provides **Once Guarantees** that ensures no data processed is duplicated or lost.
+- Spark provides **Exatly Once Guarantees** that ensures no data processed is duplicated or lost.
 - Spark streaming also ensures fault-tolerance for stream by using **Checkpoints**
 
 **Summary**: In batch, each run starts from nothing (stateless). In streaming, each micro-batch inherits two things from the last one: how far it has read (offsets), and what it has computed so far (state).
