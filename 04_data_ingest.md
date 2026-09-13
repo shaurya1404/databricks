@@ -33,15 +33,15 @@ Auto Loader is a Spark Structured Streaming source accessed using `cloudFiles` t
 
 Why use Auto Loader to ingest data from cloud storage if we already have the traditional Streaming DataStream Reader API?
 
-1) No Incremental Loading: Vanilla Structured Streaming performs full table scans on entire directories to detect new files. This is slow and inefficient when dealing with millions of files.
+1) Inefficient Incremental Loading: Vanilla Structured Streaming performs incremental loading via full table scans on the entire directory to detect new files. This is slow and inefficient when dealing with millions of files.
 
-2) In-Memory File List Storage: Duplicate file detection via vanilla Structured Streaming is done by storing a list of all files in-memory on the the Driver node. This doesn't scale well since memory constraints arise as the file list increases.
+2) In-Memory File List Storage: Duplicate file detection in vanilla Structured Streaming is done by storing a list of all files in-memory on the the Driver node. This doesn't scale well since memory constraints arise with millions of files.
 
 3) No Schema Evolution: Vanilla Structured Streaming requires manually defining the schema before the streaming starts. Also, new column addition  results in either data loss or requires manual handling.
 
 Auto Loader solves the above limitations of the traditional DataStream Reader API via:
 
-1) Supports Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full tabel scan of the directory, it leverages a Cloud Queue to detect new files.
+1) Efficient Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full tabel scan of the directory, it leverages a Cloud Queue to detect new files.
 
 2) RocksDB: A distributed key-value store which supersedes storing the entire file list in-memory in the Driver node - enables infinite scalability
 

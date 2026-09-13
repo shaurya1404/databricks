@@ -19,9 +19,26 @@ An instance of execution of a Job is known as a Run.
 1) Trigger
 
 - Manual
-- Schedule: CRON Job that triggers on fixed intervals
-- File/Table Events: Trigger when a new file arrives or a table updates
-- Continuous: Spark Streaming Job 
+- Schedule: Triggers on fixed intervals (allows CRON Syntax)
+- File/Table Events: Trigger when a new file arrives or the table updates
+- Continuous: Keeps one run active at all times; restarting upon success and failures
+
+### CRON Syntax
+
+CRON syntax allows representing complex requirements for scheduling intervals.
+
+**6 required fields + optional year**: `secs` `mins` `hours` `day-of-month` `month` `day-of-week` `year (optional)`
+`*` -> every value
+`?` -> no specific value
+
+**The ? rule**: Day-of-month and day-of-week conflict, so exactly one of them must be `?`
+
+**Syntax Examples**
+0 30 9 * * ?         9:30 AM every day
+0 15 14 * * ?        2:15 PM every day
+0 0 9 ? * MON-FRI    9 AM on weekdays
+0 0 8 ? JAN,APR *    8 AM daily in JAN and APR 
+0 30/15 * * * ?      Every 15 minutes starting from :30 (30th, 45th min)
 
 2) Tasks: Orchestration of tasks within a Job by declaring dependencies between them
 
@@ -34,7 +51,7 @@ An instance of execution of a Job is known as a Run.
 
 4) Monitoring: Jobs UI enables both real-time and historical tracking of job runs
 
-5) Retry/Rerun: Manual and automatic retry capabilities in the case of failures
+5) Retry/Rerun: Manual (Job UI) and automatic (Task property) retry capabilities in case of job failures
 
 ## Tasks 
 
@@ -53,3 +70,9 @@ The following are the type of tasks we can define in a Job:
 - Parameters: Optional dynamic values that can be passed into the task
 - Metrifc Thresholds: Flagging unusual tasks based on exceeding certain thresholds such as Time Duration
 - Notifications: Task-level notifications via Slack, Email, Teams, etc.
+- Retry Policy: Set up automatic retries within tasks where intermittent failures are possible such as transient network issues or accessing an external API. Allows specifying 1. Number of re-attempts 2. Interval between each re-attempt
+
+### Data Lineage
+
+- Upstream Tables: Any tables used as inputs for any of the tasks in the Job: bronze_companies, silver_companies
+- Downstream Table: Any tables that were produced as an output of any of the tasks in the Job: bronze_companies, silver_companies and gold_companies

@@ -124,4 +124,6 @@ On subsequent micro-batches, Spark first reads the Write-Ahead log and the Commi
 
 2) Idempotent Sinks
 
-Such sinks include Delta, Lake, and Kafka. They enable 'exactly once guarantees' of the records via Checkpoints (avoid 0 commit of records) and atomic commits to the Transaction Log of only the successful files (avoid more than 1 commits of records)
+Such sinks include Delta, Lake, and Kafka. They enable 'Exactly Once Guarantees' of the records via Checkpoints (avoid 0 commit of records) and atomic commits to the Transaction Log of only the successful files (avoid more than 1 commits of records).
+
+Hence, Checkpoints and Idempotent sinks work in tandem to enable Exactly-Once Guarantees
