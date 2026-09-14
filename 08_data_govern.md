@@ -63,3 +63,74 @@ Hence, service principals are used to give non-human entities their own permissi
 Without groups, a team of 50 data engineers in the organization having 30 UC Grants would require 1500 distinct operations by the admin.
 With a DE group, each User can be collectively enlisted in that group which holds the 30 privileges.
 
+### Role-Based Access Control
+
+A User in Unity Catalog can take one of these 4 roles:
+
+1) Account Admin: The highest level User in UC
+
+They have full access to every Metastore in the Databricks account. They are the only ones who can create/delete a Metastore - they automatically become the Metastore admin and can appoint other users for the same.
+
+2) Metastore Admin: Similar privileges to Account Admin but scoped only to the Metastore they're given the admin role for. They can also transfer ownership of the objects within that Metastore and have the capability to delete the Metastore.
+
+3) Object Owner: Every object in the Metastore will have an owner - by default, it is the Principal that created the object but it is transferred by the current owner or the admins. They will have full access to the object without explicit permissions being granted.
+
+4) Object User: Majority of the Users/Service Principals - anyone in the Metastore that's neither of the admins nor the object owner. They have no access to any of the objects by default and require explicit GRANTS using Access Control Lists (ACL).
+
+### Access Control List (ACL)
+
+Allows access to different privileges depending on the UC Object. An Object User can be assigned one or more privileges by either one of the other three roles.
+
+Privileges can either be granted/revoked via the UI or via SQL:
+
+```sql
+GRANT <privilege_name> ON <object_name> TO <principal_name>
+REVOKE <privilege_name> ON <object_name> FROM <principal_name>
+```
+
+Chain: Metastore -> Catalog -> Schema -> {Table, View, Function}
+
+#### Privileges grantable at each level
+
+| Level     | Privileges                        |
+|-----------|-----------------------------------|
+| Metastore | CREATE CATALOG                    |
+| Catalog   | USE CATALOG, CREATE SCHEMA        |
+| Schema    | USE SCHEMA, CREATE TABLE/FUNCTION |
+| Table     | SELECT, MODIFY                    |
+| View      | SELECT                            |
+| Function  | EXECUTE                           |
+
+- SELECT & MODIFY is for tables; views are read-only (SELECT).
+- Functions take EXECUTE, not SELECT.
+- USE CATALOG / USE SCHEMA grant traversal only - they expose nothing alone.
+
+#### Traversal is Mandatory
+
+Reading one table needs the whole chain, no level skipped:
+    USE CATALOG (catalog) -> USE SCHEMA (schema) -> SELECT (table)
+
+#### Privilege Inheritance
+
+A privilege granted on a parent object applies to all child objects, including ones created in the future.
+Flows DOWNWARD only.
+
+- Granted on Catalog -> applies across all its current and future schemas/tables/views/functions:
+    USE SCHEMA, CREATE TABLE/FUNCTION, SELECT, MODIFY, EXECUTE
+
+- Granted on Schema -> applies across all its current and future tables/views/functions:
+    SELECT, MODIFY, EXECUTE
+
+#### ALL PRIVILEGES
+
+Grantable at EVERY level - a shorthand that grants all privileges applicable at that level and every level below it.
+
+```sql
+GRANT ALL PRIVILEGES ON CATALOG <cat> TO <principal> -- full control of the catalog and everything inside it currently and in the future
+```
+
+#### ALL PRIVILEGES vs Object Owner
+
+`ALL PRIVILEGES` is a grant. It's a shorthand that expands to every privilege applicable to that securable — SELECT, MODIFY, USE SCHEMA, EXECUTE, CREATE TABLE, etc. depending on the level. It lets you use the object fully.
+
+Ownership is not a grant at all. It's a property stored of the object itself, like its name or its location. Every securable has exactly one owner, set to whoever created it, changeable only by `ALTER ... OWNER TO`. The owner holds ALL PRIVILEGES implicitly, and additionally can drop the object, alter it (MODIFY gives WRITE permissions but not ALTER nor DROP), and transfer ownership.
