@@ -186,27 +186,35 @@ An ordinary folder has revision history for notebooks, but that history is works
 
 # Unity Catalog
 
-It replaces the old Hive Metastore + DBFS architecture
+UC is Databricks' unified governance layer. It supersedes the legacy Hive Metastore for table metadata and adds what HMS never had: identity, access
+control, lineage, audit, and governance of non-tabular assets. Volumes are its governed alternative to DBFS.
 
 ## Hive Metastore (Legacy)
 
-The original metastore - a database containing table names, schemas, views, functions and the storage paths in the cloud where they're stored. Used for structured and semi-structured data giving them structure to allow SQL queries to run on them.
+A metadata database holding table names, column schemas, views, functions, and the cloud storage paths where the underlying files live.
+It describes files already on disk so a SQL engine can read them as tables (schema-on-read). It stores no data itself and enforces no permissions. The UC Metastore also stores metadata like the HMS but it offers more capabilities such as data goverance, lineage, and auditing.
 
 ### Limtations of Hive Metastore
 
-1) Workspace-scoped: Unlike Unity Catalog where all workspaces share one metastore for the entire region, connecting multiple workspaces within a single catalog via `catalog.schema.table`, the Hive Metastore is independent for each workspace and provides only a two-level access via `database.table`
+1) Workspace-scoped: Every workspace has its own independent HMS. The same table defined in dev and prod are two unrelated redundant objects. UC instead uses one metastore per region, to which an account admin assigns workspaces — so many workspaces share one governed set of data.
 
-2) No fine-grained security: No row level or column level security
+2) Two-level namespace: `database.table` only (database = schema) which is not sufficient for most organizations. UC adds the catalog as a third level: `catalog.schema.table`. From a UC-enabled workspace, legacy tables appear under the reserved `hive_metastore` catalog.
 
-3) No data lineage or data governance 
+3) No Delta Sharing: No equivalent of Delta Sharing for giving data to external consumers without copying it.
+
+4) No data governance, audit or lineage capabilities
 
 ## Databricks File System (Legacy)
 
-A filesystem abstraction layer over the cloud storage such as Azure Data Lake Storage or Amazon S3. It enables references to data stored in the cloud directly from the Databricks notebooks or a cluster or a job - usually used for unstructured data
+A filesystem abstraction over cloud object storage (ADLS, S3, GCS), exposing `dbfs:/` paths usable from notebooks, clusters, and jobs. It enables references to data stored in the cloud directly from the Databricks notebooks or a cluster or a job - usually used for unstructured data.
 
-  - DBFS root (dbfs:/): the workspace's own bucket. NOT for production data.
-  - Mounts (/mnt/...): path alias + stored credential.
-  - Core flaw: Mount grants access to anyone with the path + credentials - so, anyone in the cluster. No per-user data governance
+### Limitations of DBFS
+
+1) Workspace-scoped: The data stored is workspace-scoped and does not survive workspace deletion.
+
+2) Mounts (`/mnt/...`): A path alias to external cloud storage (like `/Volumes/...`) but with the storage credential in the path itself; access is path-based instead of user-based - any user in that workspace can read the data.
+
+**UC Successor**: Volumes — Governed UC objects that abstract over the cloud object storage. 
 
 ## Unity Catalog
 
