@@ -173,9 +173,132 @@ WHERE is_account_group_member('admin_grp')  -- always TRUE if admin_grp; user se
     OR (is_account_group_member('us_grp') AND region = 'us')
 ```
 
-Principals will be give access to the View to query data instead of the Table:
+Now, principals will be give access to the View instead of the Table:
 `GRANT SELECT ON VIEW dv_sales TO <principal>;`
 
-**Limitation of Dynamic Views**: An additional Metastore object must be created and maintained and users have to query the View instead of the table directly.
+**Limitation of Dynamic Views**: A seperate Metastore object must be created and maintained that users have to query instead of the table directly.
 
-### Row Filters and Column Masks
+### Row Filters and Column Masks 
+
+Unlike dynamic views, where logic is defined in a view, the security policy is applied directly to the table using row filters and column masks. The policy is then applied automatically whenever the table is queried.
+
+1) Row-level Filter
+
+Enabled by attaching a function to the table that returns a BOOLEAN per row. A row is visible only if the function returns TRUE for it.
+
+```sql
+CREATE OR REPLACE FUNCTION region_filter(region_col STRING)
+RETURN is_account_group_member('admin_grp') OR
+(is_account_group_member('uk_grp') AND region_col = 'uk') OR
+(is_account_group_member('us_grp') AND region_col('us'));
+
+ALTER TABLE sales
+SET ROW FILTER region_filter ON (region);
+```
+
+2) Column-Level Masking
+
+Enabled by attaching a function to the table that takes the column values and returns something of the same type.
+
+```sql
+CREATE OR REPLACE FUNCTION email_mask(email STRING)
+RETURN 
+CASE
+    WHEN is_account_group_member('admin_grp') THEN email
+    ELSE CONCAT(LEFT(email, 1), '***@', SPLIT_PART(email, '@', 2))
+END;
+
+ALTER TABLE sales -- note the different ALTER TABLE statement
+ALTER COLUMN email SET MASK email_mask;
+```
+
+The Row-Level Filter and Column-Level Masking ensure that security rules are enforced automatically for all queries on the table. Even though dynamic views are more flexible as they allow operations like JOINs, these policies ensure stronger governance over the table.
+
+**Limitation of Row Filters and Column Masks**: Not scalable. Policies need to be managed seperately for each table as the data grows.
+
+### Attribute-Based Access Control (ABAC)
+
+ABAC enables centralized and scalable Data-Level security by using account-scoped tags and policies rather than directly attaching to the tables.
+Hence, instead of defining the rule for every object individually, it can be applied centrally to the catalog/schema via tags and policies.
+
+1) Governed Tags (Attributes)
+
+An attribute is a key-value pair defined at the account-level that is applied to UC objects such as catalogs, schemas, tables, and columns. They describe charateristics of the object such as sensitivity (`pii = true`) or classification (`domain=finance`).
+
+'Goverened' tags imply that the vocabulary is centralized - three different people can't create `pii`, `PII`, and `personal_info` as three seperate tags.
+
+**Rule**: Metastore objects inherit tags from their parent catalog and schema (overriding is allowed) except at the column level - which require explicit tags.
+
+2) Policies (Rules)
+
+A policy says: Within this scope, for objects carrying this tag, apply this filter/masking for these Principals
+
+Policy Inheritance applies as in policies attached at the catalog, schema, or table level automatically apply to all tables within that scope.
+
+Two conditions must hold true at query time:
+- Scope: Is the object within the scope of this policy?
+- Tag: Does the object carry the tags that this policy targets?
+
+#### Implementing ABAC
+
+1) Step 1: Create UDFs that contain the logic for row-level filtering or column-level masking
+
+Same UDFs as the ones created at the time of implementation of row-level filters and column-level masks policies: 
+`region_filter()`: Function that filters rows based on the region column and the group that the user belongs to
+`column_mask()`: Function that masks the values of the email column based on the group that the user belongs to
+
+```sql
+CREATE OR REPLACE FUNCTION region_filter(region_col STRING)
+RETURN is_account_group_member('admin_grp') OR
+(is_account_group_member('uk_grp') AND region_col = 'uk') OR
+(is_account_group_member('us_grp') AND region_col('us'));
+```
+
+```sql
+CREATE OR REPLACE FUNCTION email_mask(email STRING)
+RETURN 
+CASE
+    WHEN is_account_group_member('admin_grp') THEN email
+    ELSE CONCAT(LEFT(email, 1), '***@', SPLIT_PART(email, '@', 2))
+END;
+```
+
+2) Step 2: Create Governed Tags
+
+To create a Governed Tag via UI: Catalog -> Govern -> Governed Tags -> Create Governed Tag
+
+`pii` = `email`: Signifies that the data contains Personally Identifiable Info and that the PII masking behaviour to be applied is for emails
+`access_type` = `region`: Signifies the type of access control to be applied to the data, such as region-based or department-based
+
+3) Step 3: Create Policies
+
+Policies to be created at the Catalog/Schema/Table level - all child tables will inherit the policy.
+
+To create a Policy via UI: Catalog -> Choose Catalog/Schema/Table -> Policies -> New Policy
+`Principals and scope`: Define the Principals subjected to this policy and the catalog/schema/table within the scope of this policy
+`Policy Type`: Row Filter or Column Mask
+`Row filter function`/`Masking function`: Select function in the catalog that: evaluates each row and returns a Boolean / returns a masked value
+`Function inputs`: For Row Filter Only. Map each function parameter to a specific column based on the tag it holds, such as filter on `access_type: region` tagged col
+`Column conditions`: For Column Mask Only. Select the tag the column must hold to mask via this policy, such as mask `pii: email` tagged col
+
+Creating Row filter / Column masking policies via SQL:
+
+```sql
+CREATE OR REPLACE POLICY 'policy_mask_email'
+ON SCHEMA catalog.schema
+COMMENT opt_comment
+( ROW FILTER | COLUMN MASK ) catalog.schema.function
+TO `principal_1`, `principal_2`
+FOR TABLES 
+MATCH COLUMNS hasTagValue('key', 'value') AS c1
+( USING | ON ) COLUMN c1
+```
+
+4) Step 4: Attach Tags to the Columns
+
+Tags can be attached via Catalog Explorer UI for the Table or SQL:
+
+```sql
+ALTER TABLE customers_abac
+ALTER COLUMN email SET TAGS ('pii' = 'email')
+```
