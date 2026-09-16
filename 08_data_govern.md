@@ -148,7 +148,7 @@ Data-Level security enables us to limit access to the data within an object with
 
 A Dynamic View allows you to query data from a table like a regular view. However, unlike a regular view, it can apply logic dynamically depending on who's querying the data. 
 
-In a regular view, the logic is fized and all the users see the same results. In a dynamic view, the logic is evaluated at query time based on the user by leveraging functions such as `is_account_group_member()` to determine the user's group. Hence, different users querying the same dynamic view may see different results.
+In a regular view, the logic is fixed and all the users see the same results. In a dynamic view, the logic is evaluated at query time based on the user by leveraging functions such as `is_account_group_member()` to determine the user's group. Hence, different users querying the same dynamic view may see different results.
 
 To create a Group: Account -> Settings -> Identity and Access -> Groups
 
@@ -189,11 +189,11 @@ Enabled by attaching a function to the table that returns a BOOLEAN per row. A r
 ```sql
 CREATE OR REPLACE FUNCTION region_filter(region_col STRING)
 RETURN is_account_group_member('admin_grp') OR
-(is_account_group_member('uk_grp') AND region_col = 'uk') OR
-(is_account_group_member('us_grp') AND region_col('us'));
+(is_account_group_member('uk_grp') AND region_col = 'UK') OR
+(is_account_group_member('us_grp') AND region_col = 'US');
 
 ALTER TABLE sales
-SET ROW FILTER region_filter ON (region);
+SET ROW FILTER region_filter ON (region); -- ON (argument_column(s))
 ```
 
 2) Column-Level Masking
@@ -214,7 +214,7 @@ ALTER COLUMN email SET MASK email_mask;
 
 The Row-Level Filter and Column-Level Masking ensure that security rules are enforced automatically for all queries on the table. Even though dynamic views are more flexible as they allow operations like JOINs, these policies ensure stronger governance over the table.
 
-**Limitation of Row Filters and Column Masks**: Not scalable. Policies need to be managed seperately for each table as the data grows.
+**Limitation of Row Filters and Column Masks**: Not scalable. Policies need to be created and managed seperately for each table.
 
 ### Attribute-Based Access Control (ABAC)
 
@@ -225,7 +225,7 @@ Hence, instead of defining the rule for every object individually, it can be app
 
 An attribute is a key-value pair defined at the account-level that is applied to UC objects such as catalogs, schemas, tables, and columns. They describe charateristics of the object such as sensitivity (`pii = true`) or classification (`domain=finance`).
 
-'Goverened' tags imply that the vocabulary is centralized - three different people can't create `pii`, `PII`, and `personal_info` as three seperate tags.
+'Governed' tags imply that the vocabulary is centralized - three different people can't create `pii`, `PII`, and `personal_info` as three seperate tags.
 
 **Rule**: Metastore objects inherit tags from their parent catalog and schema (overriding is allowed) except at the column level - which require explicit tags.
 
@@ -233,7 +233,7 @@ An attribute is a key-value pair defined at the account-level that is applied to
 
 A policy says: Within this scope, for objects carrying this tag, apply this filter/masking for these Principals
 
-Policy Inheritance applies as in policies attached at the catalog, schema, or table level automatically apply to all tables within that scope.
+Policy Inheritance ensures policies attached at the catalog, schema, or table level automatically apply to all tables within that scope.
 
 Two conditions must hold true at query time:
 - Scope: Is the object within the scope of this policy?
@@ -272,14 +272,14 @@ To create a Governed Tag via UI: Catalog -> Govern -> Governed Tags -> Create Go
 
 3) Step 3: Create Policies
 
-Policies to be created at the Catalog/Schema/Table level - all child tables will inherit the policy.
+Policies can be created at the Catalog/Schema/Table level - all child tables will inherit the policy.
 
 To create a Policy via UI: Catalog -> Choose Catalog/Schema/Table -> Policies -> New Policy
 `Principals and scope`: Define the Principals subjected to this policy and the catalog/schema/table within the scope of this policy
 `Policy Type`: Row Filter or Column Mask
-`Row filter function`/`Masking function`: Select function in the catalog that: evaluates each row and returns a Boolean / returns a masked value
-`Function inputs`: For Row Filter Only. Map each function parameter to a specific column based on the tag it holds, such as filter on `access_type: region` tagged col
-`Column conditions`: For Column Mask Only. Select the tag the column must hold to mask via this policy, such as mask `pii: email` tagged col
+`Row filter function`/`Masking function`: Select function from the catalog that: evaluates each row and returns a Boolean / returns a masked value
+`Function inputs`: For Row Filter Only. Map each function parameter to a specific column based on the tag it holds, such as filter via `access_type: region` tagged column
+`Column conditions`: For Column Mask Only. Specify the tag the column to be masked must hold, such as mask `pii: email` tagged columns
 
 Creating Row filter / Column masking policies via SQL:
 
@@ -288,10 +288,10 @@ CREATE OR REPLACE POLICY 'policy_mask_email'
 ON SCHEMA catalog.schema
 COMMENT opt_comment
 ( ROW FILTER | COLUMN MASK ) catalog.schema.function
-TO `principal_1`, `principal_2`
+TO `principal_1`, `principal_2`, ...
 FOR TABLES 
-MATCH COLUMNS hasTagValue('key', 'value') AS c1
-( USING | ON ) COLUMN c1
+MATCH COLUMNS hasTagValue('key', 'value') AS c1 -- match column by tag in all the tables
+( USING | ON ) COLUMN c1 -- pass the aliased column as argumnts in the UDF
 ```
 
 4) Step 4: Attach Tags to the Columns
