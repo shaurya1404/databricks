@@ -115,7 +115,7 @@ When performing OPTIMIZE, files are automatically compacted AND clustered if Liq
 
 With table partitioning, the engine relies on directory names for data skipping. This made it rigid since changing the PARTITIONED BY columns is not possible after the first time as it would require re-writing all directory names and content.
 
-Liquid Clustering keeps files with no directory hierarchy at all. The organization lives entirely in the transaction log, which records which key ranges each file covers. Data skipping then works based on those file-level metadata rather than directory names. New data is just clustered according to the new cluster columns/keys while leaving older files as they are (they will be re-arranged in newer files when we run OPTIMIZE).
+Liquid Clustering keeps files with no directory hierarchy at all. The organization lives entirely in the transaction log, which records which key ranges each file covers. Data skipping then works based on file-level metadata rather than directory names. New data is just clustered according to the new cluster columns/keys while leaving older files as they are (they will be re-arranged in newer files when we run OPTIMIZE).
 
 ```sql
 -- For a new table
@@ -127,4 +127,30 @@ CLUSTER BY (col1);  -- Upto 4 columns allowed
 -- For an existing table
 ALTER TABLE table1
 CLUSTER BY (col1)
+```
+
+### VACUUM
+
+Used to permanently delete old, unused files from the Delta Lake to free up storage. Permnently deletes files that are no longer referenced in the transaction logs and older than the retention threshold.
+
+Unused files could accumulate due to failures from Spark Jobs, or due to running the optimize command which compacts into new files without deleting the old ones.
+
+```sql
+VACUUM catatlog.schema.table [RETAIN N HOURS] -- Default: 7 days
+```
+
+### PREDICTIVE OPTIMIZATION
+
+Only works on Unity catalog managed Delta Tables. Enabling PREDICTIVE OPTIMIZATION allows the UC to automatically perform maintenance operations such as OPTIMIZE, VACUUM, and ANALYZE on Delta Tables whenever the engine discerns as needed. 
+
+It can be enabled either in the Account, Catalog, or Schema level - all lower level managed tables from that hierarchy will inherit the PREDICTIVE OPTIMIZATION.
+
+For the Account: Account Console -> Settings -> Feature Enablement
+
+```sql
+ALTER CATALOG catalog_name
+ENABLE PREDICTIVE OPTIMIZATION;
+
+ALTER SCHEMA schema_name
+ENABLE PREDICTIVE OPTIMIZATION;
 ```
