@@ -1,6 +1,6 @@
 # Declarative Automation Bundles
 
-Formerly called Databricks Asset Bundles. DABs provide a structured framework via a machine-readable definition to complete your Databricks project. It integrates software engineering practices such as source control, testing, and CI/CD into the Databricks project. A Bundle puts metadata alongside the source code to describe what the project should look like in the form of a declarative YAML file and Databricks will make it happen. Hence, a Bundle is the end-to-end definition of a Databricks project.
+Formerly called Databricks Asset Bundles. DABs provide a structured framework via a machine-readable definition file to complete your Databricks project. It allows integration of software engineering practices such as source control, testing, and CI/CD into the Databricks project. A Bundle puts metadata alongside the source code to describe what the project should look like in the form of a declarative YAML file and Databricks will make it happen. Hence, a Bundle is the end-to-end definition of a Databricks project.
 
 **Databricks Project**: A collection of notebooks, scripts, test files, jobs & pipelines, and clusters
 
@@ -19,7 +19,7 @@ The databricks.yml has at least 3 top-level sections:
 Few more top-level sections:
 4) `include`: to reference additional config files 
 5) `variables`: define reusable values (like parameters)
-6) `run_as`: specify identity to run jobs (user or service principal)
+6) `run_as`: specify identity to run jobs (user or service principal). Use a service pricipal for production workloads
 7) `artifacts`: external assets or libraries the bundle depends on (dependencies)
 8) `sync`: include/exclude patterns to control which local files get uploaded to the workspace
 
@@ -38,7 +38,7 @@ variables:
     default: dev_catalog
 
 resources:
-  jobs:                                     # defining the jobs to be included in this bundle - only 'daily_sales_job'
+  jobs:                                     # defining the jobs included in this bundle - only 'daily_sales_job'
     daily_sales_job:                        # the bundle's internal key to refer to the job
       name: daily-sales-${bundle.target}    # the display name of the job in the workspace
       tasks:
@@ -64,12 +64,14 @@ targets:
 
 The `databricks.yml` file is the entry point for the Bundle and what the Databricks CLI uses to configure the resources to be deployed from your local IDE to your workspace.
 
+Default deploy path for files: `/Workspace/Users/<deploying-user>/.bundle/<bundle_name>/<target>/`
+
 `mode`: A one-line declaration that the CLI uses to turn on some default behavious depending on the target environment. 
 
 `mode: development` prefixes every non-file resource (such as a job) with `[dev ${current_user}]` and tags them with a `dev` tag. 
 It also pauses all schedules and triggers on the jobs.
 
-`development: production` validates that the bundle's Declarative Pipelines are marked `development: false`. It does not prefix resource names and does not pause schedules — the job deploys under its real name and runs on its real schedule.
+`mode: production` validates that the bundle's Declarative Pipelines are marked `development: false`. It does not prefix resource names and does not pause schedules — the job deploys under its real name and runs on its real schedule.
 
 ### Important Databricks CLI Commands:
 
@@ -79,7 +81,7 @@ Creates a starter `databricks.yml` file and project folder structure.
 `databricks bundle generate`: To produce `databricks.yml` in an existing project.
 
 `databricks bundle validate`: Validates the configuration of your bundle before deployment. 
-Ensures your `databricks.yml` file is correctly structured. Catches missing or invalid fields early. Good practice to run before deploying
+Ensures your `databricks.yml` file is correctly structured - catches missing or invalid fields early. Good practice to run before deploying.
 
 `databricks bundle deploy -t <target>`: Upload source code (such as notebooks) and create the resources (such as jobs) in the workspace. 
 Creates a hidden `.bundle` folder in the workspace with your files.
