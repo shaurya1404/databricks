@@ -79,8 +79,8 @@ Quality of data improves in each layer.
 
 Databricks splits the platform into a **control layer** (Web UI, Compute Orchestration, Unity Catalog) that manages and orchestrates the cluster runs and a **compute layer** (Classical or Serverless) that runs the actual workloads.
 
-- Web UI: Allows interation with workloads, notebooks, queries, etc. through the browser
-- Compute Orchestration: Cluster or Job launch, number and type of workers, Autoscaling
+- Web UI: Allows interaction with pipelines, notebooks, queries, etc. through the browser
+- Compute Orchestration: Serverless or Classical launch, number and type of workers, Autoscaling
 - Unity Catalog: Data Governance and Lineage
 - Classical Compute: Complex but high controlability/configurability clusters managed by the Cloud Platform
 - Serverless Compute: Simple/Abstracted but low controlability clusters managed by Databricks
@@ -141,7 +141,7 @@ Workspace: An isolated Databricks instance that has its own users, notebooks, cl
 **%fs**: Run file system commands
 **%sh**: Run shell commands (Driver node only)
 **%pip**: Install Python libraries
-**%run**: Import code from other notebooks into the current one - allow us to modularize the code
+**%run**: Import code from other notebooks into the current one - allows us to modularize the code
 
 ## Databricks Utilities (dbutils)
 
@@ -151,7 +151,7 @@ These utilities can only be run from Python, Scala, or R cells but not SQL cells
 
 ### File System Utilities (dbutils.fs)
 
-`%fs` is syntactic sugar around `dbutil.fs`
+`%fs` is syntactic sugar around `dbutils.fs`
 
 Use `%fs` for ad hoc queries
 Use `dbutils.fs` for production scripts since it integrates well with Python to perform powerful queries
@@ -171,7 +171,7 @@ print(f'Folder Count {folder_count}')
 
 A Git folder (formerly called Repos) is a clone of a remote git repository.
 
-An ordinary folder has revision history for notebooks, but that history is workspace-local — it can't be reviewed, branched, or shared. A Git folder makes your notebooks and files real repository contents, so the pull, branching, pushing, and CI/CD pipelines are supported. 
+An ordinary folder provides history for notebooks, but that history is workspace-local — it can't be branched or shared. A Git folder makes your notebooks real repository content, so pull, branching, pushing, and CI/CD pipelines are supported. 
 
 1. DEV WORKSPACE (Databricks)
    - Git folder = clone of the remote repo; each user gets their own clone, so two people can sit on different branches without interfering.
@@ -186,19 +186,18 @@ An ordinary folder has revision history for notebooks, but that history is works
 
 # Unity Catalog
 
-UC is Databricks' unified governance layer. It supersedes the legacy Hive Metastore for table metadata and adds what HMS never had: identity, access
-control, lineage, audit, and governance of non-tabular assets. Volumes are its governed alternative to DBFS.
+UC is the unified governance solution provided by Databricks. It supersedes the legacy Hive Metastore for table metadata and adds what HMS never had: governance, audit, and lineage. Volumes are its governed solution to DBFS.
 
 ## Hive Metastore (Legacy)
 
-A metadata database holding table names, column schemas, views, functions, and the cloud storage paths where the underlying files live.
-It describes files already on disk so a SQL engine can read them as tables (schema-on-read). It stores no data itself and enforces no permissions. The UC Metastore also stores metadata like the HMS but it offers more capabilities such as data goverance, lineage, and auditing.
+A metadata database holding table names, column schemas, views, functions, and the cloud storage paths of where the underlying files live.
+It describes files already on disk so a SQL engine can read them as tables (schema-on-read). It stores no data itself and enforces no permissions. The UC Metastore also stores metadata like the HMS but it offers more capabilities such as data goverance, audit, and lineage.
 
 ### Limtations of Hive Metastore
 
 1) Workspace-scoped: Every workspace has its own independent HMS. The same table defined in dev and prod are two unrelated redundant objects. UC instead uses one metastore per region, to which an account admin assigns workspaces — so many workspaces share one governed set of data.
 
-2) Two-level namespace: `database.table` only (database = schema) which is not sufficient for most organizations. UC adds the catalog as a third level: `catalog.schema.table`. From a UC-enabled workspace, legacy tables appear under the reserved `hive_metastore` catalog.
+2) Two-level namespace: `database.object` only (database = schema) which is not sufficient for most organizations. UC adds the catalog as a third level: `catalog.schema.object`. From a UC-enabled workspace, legacy tables appear under the reserved `hive_metastore` catalog.
 
 3) No Delta Sharing: No equivalent of Delta Sharing for giving data to external consumers without copying it.
 
@@ -206,7 +205,7 @@ It describes files already on disk so a SQL engine can read them as tables (sche
 
 ## Databricks File System (Legacy)
 
-A filesystem abstraction over cloud object storage (ADLS, S3, GCS), exposing `dbfs:/` paths usable from notebooks, clusters, and jobs. It enables references to data stored in the cloud directly from the Databricks notebooks or a cluster or a job - usually used for unstructured data.
+A filesystem abstraction over cloud object storage (ADLS, S3, GCS), exposing `dbfs:/` paths usable from notebooks, clusters, and jobs. It enables references to data stored in the cloud directly from the Databricks notebooks or a job - usually used for unstructured data.
 
 ### Limitations of DBFS
 
@@ -226,9 +225,9 @@ Catalog is just a logical container within the metastore. Usually one per busine
 
 Schemas (formerly databases) are also logical containers within catalogs. Each schema contains one or more volumes, tables, views, or functions
 
-- Storage Credentials & External Locations: How UC references to cloud storage other than the default Metastore
-- Connections: Refers to read-only access to databases in an external database system suchas as MysSQL or PostgreSQL via Lakehouse Federation
-- Share, Recipient, Provider: Handle Delta Sharing
+- Storage Credentials & External Locations: How UC accesses and governs cloud storage objects
+- Connections: Refers to read-only access to databases in an external database system suchas as MySQL or PostgreSQL via Lakehouse Federation
+- Share, Recipient, Provider: Delta Sharing objects
 
 Databricks allows 100% backward compatability with the Hive Metastore in the form of a reserved pseudo-catalog called `hive_metastore`
 
@@ -250,7 +249,7 @@ A Table is the UC Catalog object that governs access to the path in the cloud aa
 
 - Storage Credentials: An authentication and authorization mechanism for accessing data in the cloud storage. Created on top of a Managed Identity which is a way to autheticate and authorize Azure resources without needing to manage credentials manually.
 
-- External Location: An object that combines a Storage Credential to an Azure Data Lake Storage (ADLS) Container. So, when a user tries to access an the specific path, the UC knows which Storage Credential to use for it
+- External Location: An object that combines a Storage Credential to a path (usually the ADLS Container). So, when a user tries to access a specific path, the UC knows which Storage Credential to use for it
 
 ## Configure Unity Catalog to Access the Cloud Storage
 
@@ -271,7 +270,7 @@ Why not store the Managed Identity in the Storage Credential directly? Why do we
 
 2) Create an Azure Data Lake Storage Gen2 Account
 
-Creating a Cloud Storage Account which will hold all our structured (tables) and unstructured (files) data.
+Creating a Cloud Storage Account which will hold all our data (files).
 
 3) Give the Access Connector the role of Storage Blob Data Contributor
 

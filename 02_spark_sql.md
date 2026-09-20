@@ -46,9 +46,9 @@ Every Metastore has a three-level namespace to categorize UC objects: `catalog.s
 - Object: Operational (Volume)
 
 UC Objects include: 
-1) Tables — tabular data
-2) Views — saved queries, including dynamic views for row/column-level security
-3) Volumes — non-tabular data, i.e. files
+1) Tables — tabular data (governed path + metadata)
+2) Volumes — non-tabular data (governed path)
+3) Views — saved queries, including dynamic views for row/column-level security
 4) Functions — UDFs
 
 ### Creating the Catalog
@@ -63,7 +63,7 @@ CREATE CATALOG IF NOT EXISTS gizmobox
   COMMENT 'This is the catalog for the GizmoBox Data Lakehouse';
 ```
 
-If a Managed Location is not specified, all objects will be created under the Metastore's root storage -  an isolated cloud storage container created on your behalf within Databrick's own cloud provider.
+If a Managed Location is not specified, all objects will be created under the Metastore's root storage - an isolated cloud storage container created on your behalf within Databrick's own cloud provider.
 
 ### Creating the Schemas
 
@@ -92,9 +92,9 @@ If Managed Location is not specified, the UC will check to see if a Managed Loca
 
 ### Creating the Volumes
 
-A volume is a directory-like logical container that holds non-tabular data (files). Similar to how a table holds rows, a Volume holds files and folders inside it.
+A volume is a directory-like logical container that governs access to the files. Similar to a table, but it doesn't hold any metadata of how to interpret the files - only governance.
 
-***Note***: External Volumes must be registered against a directory within an External Location
+***Note***: External Volumes must be created on a directory within an External Location
 
 ```sql
 USE CATALOG gizmobox;
@@ -105,7 +105,7 @@ CREATE EXTERNAL VOLUME IF NOT EXISTS operational_data
     COMMENT 'This is a Volume for the Operational data we have in the Raw Schema'
 ```
 
-Once created with the location, the UC now automatically sees all the files and folders stored inside the directory that the Volume points to in the Cloud Storage. 
+Once created, the UC now automatically sees all the files and folders stored inside the directory that the Volume points to in the Cloud Storage. 
 The UC now enables data governance via grants/revokes on the Volume for the data in the cloud.
 
 Creating a Volume also enables accessing the data using the relative UC filepath which internally references to the absolute ABFSS URL.
@@ -117,7 +117,7 @@ Filepath format: `/Volumes/catalog/schema/volume`
 
 # Querying Data
 
-Querying structured/semi-structured data from file in the the raw/landing layer to be displayed as a structured table. 
+Querying the files in the the raw/landing layer. 
 
 ## Querying JSON Files Using Spark SQL
 
@@ -225,7 +225,7 @@ Multi-line Complex JSON: [
 
 The Orders table has data inconsistencies such as type mismatches in some of the records. Hence, the JSON parser fails to qualify all the rows and returns the corrupted rows in the `_corrupt_record` column while leaving NULL in all the actual columns for those rows.
 
-Hence, to avoid data loss, loading the file as a 'text' file format into the Bronze layer. We will then fix the issues and then load it using the JSON parser into the Silver layer
+Hence, to avoid data loss, loading the file as a 'text' file format into the Bronze layer. We will fix the issues and then load it using the JSON parser into the Silver layer
 
 ```sql
 CREATE OR REPLACE VIEW gizmobox.bronze.v_orders
@@ -236,9 +236,9 @@ FROM text.`/Volumes/gizmobox/raw/operational_data/orders`
 
 ## Binary File Format
 
-A Binary File Format is used to process unstructured data in Databricks such as PDFs, PNGs, MP3s, MP4s, or any other file format
+The Binary File Format is used to process unstructured data in Databricks such as PDFs, PNGs, MP3s, MP4s, or any other file format
 
-It is not a conventional file format like Parquet or CSV. Spark knows what a CSV is and how to handle it. A Binary File is simply reading the bytes returned by the cloud storage without interpreting them.
+It is not a conventional file format like Parquet or CSV. Spark knows what a CSV is and how to interpret it. A Binary File is simply reading the bytes of the file without interpreting them.
 
 When processing Binary File formats, every file becomes one row in a four-column schema:
 - path: `string`. Full path to the file
@@ -284,7 +284,7 @@ An External Table is a UC object that's useful when only reading data from an ex
 
 An External Table and a Volume cannot co-exist on the exact same cloud path since we would then have two governance objects governing the same data leading to contradictions.
 
-Both, External Tables and External Volumes can only be created if an External Location has already been created on the root path that the External Table/Volume points to since the Storage Credential is stored in the External Location which the External Table needs to access the path.
+Both, External Tables and External Volumes can only be created if an External Location has already been created on the root path that the External Table/Volume points to since the Storage Credential is stored in the External Location which the External Table/Volume needs to access the path.
 
 ### Creating An External Table on Payments
 
@@ -352,7 +352,7 @@ Pre-requisite: Unity Catalog must be enabled
 2) Catalog Federation
 
 Pre-requisite: Unity Catalog must be enabled
-- Create Connection (JDBC + Credentials)
+- Create Connection
 - Create Storage Credential + External Location
 - Create Foreign Catalog
 - Grant Privileges
@@ -422,20 +422,21 @@ HAVING COUNT(*) > 1
 
 ## Transform Customers Data
 
-1. - 4. Check notebook 'Tranform Customer Data' for removing NULLs, deduping, and casting transformation via temp views
+1. - 4. Check notebook 'Transform Customer Data' for removing NULLs, deduping, and casting transformation via temp views
 
 4) Create Temp View to CAST Columns to Correct Data Types
 
 ```sql
 CREATE OR REPLACE TEMPORARY VIEW casted AS
-SELECT CAST(created_timestamp AS timestamp), customer_id, customer_name, CAST(date_of_birth AS date), email, CAST(member_since AS date), telephone, source_path
+SELECT CAST(created_timestamp AS TIMESTAMP), customer_id, customer_name, CAST(date_of_birth AS DATE), email, CAST(member_since AS DATE), telephone, source_path
 FROM deduped
 ```
 
 5) Create Delta (Managed) Table In Silver Schema
 
 ```sql
-CREATE TABLE gizmobox.silver.customers AS 
+CREATE TABLE gizmobox.silver.customers
+AS 
 SELECT *
 FROM casted
 ```
@@ -583,19 +584,19 @@ FROM gizmobox.bronze.v_orders
 `from_json(jsonStr, 'schema' [, options])`: Deserializes a JSON String column into a JSON object using a passed schema
 
 ```sql
-SELECT schema_of_json(fixed_value) AS schema_orders, fixed_value
+SELECT schema_of_json(corrected_value) AS schema_orders, corrected_value
 FROM temp_orders
 LIMIT 1
 ```
 
 ```sql
-SELECT from_json(fixed_value, 'order_of_schema_here') AS json_value
+SELECT from_json(corrected_value, 'order_of_schema_here') AS json_value
 FROM temp_orders
 ```
 
 3) Access JSON Object Elements & Dedup 'Items' Array
 
-`array_distinct(col)` removes duplicate values from an array
+`array_distinct(array_col)` removes duplicate values inside an array
 
 ```sql
 SELECT json_value.order_id,
