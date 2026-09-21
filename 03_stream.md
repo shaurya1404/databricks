@@ -70,6 +70,8 @@ streaming_query = df_transformed.writeStream \
 
 The streaming query runs indefinitely unless manually stopped: `streaming_query.stop()`
 
+***Note***: The DataStream Reader API only describes the Source. The DataStream Writer API configures the Stream.
+
 ## Trigger
 
 `.trigger()` is a method in the DataStream Writer API that answers 'when does the next micro-batch start?'
@@ -104,11 +106,11 @@ Should NOT be used for Production workloads.
 1) `.outputMode(append)` - Default
 
 Writes only the new rows that have arrived in the table and does not support updating existing ones. Used well with operations like `filter`. 
-Does not allow aggregate functions like `count()` since they require updating previous rows.
+Does not allow aggregate functions like `count()` since they require updating previous rows. Typical for bronze-layer ingestion.
 
-2) `.outputMode(update)`: Writes new rows as well as updates existing rows; allows aggregate functions
+2) `.outputMode(complete)`: The entire result set is rewritten on every trigger; only allowed with aggregate functions. Typical for gold-layer aggregations
 
-3) `.outputMode(complete)`: Overwrites the entire table; allows aggregate functions
+3) `.outputMode(update)`: Only rows that changed in this batch are written, i.e, upserts. allows aggregate functions
 
 ## Checkpoints
 
