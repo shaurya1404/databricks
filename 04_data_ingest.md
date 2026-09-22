@@ -6,7 +6,7 @@ Until now, we've used the DataFrame Reader and DataStream Reader APIs to ingest 
 
 The Data Ingestion tools in Databricks can be represented as a hierarchy with a trade-off between abstraction and controllability:
 
-Spark Structured Streaming -> Lakeflow Spark Declarative Pipelines (SDP) -> Lakeflow Connect managed connectors
+Spark Structured Streaming -> Lakeflow Spark Declarative Pipelines (SDP) -> Lakeflow Connect Managed Connectors
 Low Abstraction, High Controllability -> High Abstraction, Low Controllability
 
 Spark Streaming -> Write Spark code
@@ -23,7 +23,7 @@ A Connector is an object that connects Spark to one external system's protocols 
 
 Standard Connectors like Kafka and Auto Loaders can be used with both, Spark and Spark Declarative Pipelines, layers of the Data Ingestion Hierarchy. You can use them in either. Whereas, a Standard Connector like SFTP is only compatible with Spark Structured Streaming
 
-**Lakeflow Connect Managed Connectors**: Connectors used for Lakeflow Connect. Provides a data pipeline to an external system like SaaS applications (Salesforce, Workday) and Database applications (MySQL, PostgreSQL, SQL Server). You do not write any of the ETL logic for ingestion - only configure destination, scheduling, permissions, etc.
+**Lakeflow Connect Managed Connectors**: Connectors used for Lakeflow Connect. Provides a data ingestion from an external system like SaaS applications (Salesforce, Workday) and Database applications (MySQL, PostgreSQL, SQL Server). You do not write any of the ETL logic for ingestion - only configure destination, scheduling, permissions, etc.
 
 ## Auto Loader
 
@@ -41,7 +41,7 @@ Why use Auto Loader to ingest data from cloud storage if we already have the tra
 
 Auto Loader solves the above limitations of the traditional DataStream Reader API via:
 
-1) Efficient Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full tabel scan of the directory, it leverages a Cloud Queue to detect new files.
+1) Efficient Incremental Loading: Enabling 'File Notification Mode' leverages cloud storage services like AWS S3 Event Notifications or Azure Event Grid to track new files. Instead of manually performing a full table scan of the directory, it leverages a Cloud Queue to detect new files.
 
 2) RocksDB: A distributed key-value store which supersedes storing the entire file list in-memory in the Driver node - enables infinite scalability
 
@@ -145,13 +145,13 @@ Managed Connectors are fully-managed solutions to ingest data provided by Databr
 The 4-Component Architecture of a SaaS Managed Connector:
 
 1) Source (SaaS Tables where the data is to be ingested from                            - Account and Contact tables in SF)
-2) Connection (The UC Object that connects Databricks to the SaaS to access the Source  - lakeflow_man_conn_salesforce)
+2) Connection (The UC Object that stores credentials to access the SaaS Source          - lakeflow_man_conn_salesforce)
 3) Ingestion Pipeline (The fully-managed pipeline in Databricks that ingests the data   - managed_ingestion_pl_salesforce)
-4) Destination (The Delta Table where the transformed data from the Pipeline is stored  - databricks_learning_ws.bronze.tables)
+4) Destination (The Delta Table where the transformed data from the Pipeline is stored  - demo.bronze.tables)
 
 The 6-Component Architecture of a Database Managed Connector:
 
-1) Source (The Tables(s) in External Databases - My SQL, PostgreSQL, SQL Server)
+1) Source (The Tables(s) in External Databases - My SQL, PostgreSQL, SQL Server) 
 2) Connection (UC Object that stores credentials to connect to the Database)
 
 There are two mechanisms provided by databases that track changes that have occured to the data so that we don't need to perform a full-table scan everytime just to detect which records have been inserted, updated, or deleted:

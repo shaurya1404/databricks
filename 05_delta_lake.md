@@ -316,7 +316,8 @@ Use `CREATE OR REPLACE` when overwriting data in which the schema has changed - 
 ## COPY INTO
 
 Similar to INSERT INTO, it loads data from Cloud Storage into a Delta Table.
-It differs from INSERT INTO in the sense that COPY INTO loads incrementally - only new files are appended; already existing ones are ignored
+It differs from INSERT INTO in the sense that COPY INTO loads incrementally - only new files are appended; already existing ones are ignored.
+It also supports Schema Evolution.
 
 It's an alternative to Auto Loader (performs Stream Ingestion) for Batch Ingestion
 
