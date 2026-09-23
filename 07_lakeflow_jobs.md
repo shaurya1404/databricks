@@ -8,7 +8,7 @@ Lakeflow Job is a managed orchestrator service provided by Databricks. Its unit 
 
 A pipeline is usually a task within a job. The pipeline automates and manages the ETL framework. Pipelines can also schedule themselvs but a Job enables integrating that pipeline with other pipelines, non-pipelines steps before or after, or job-level notifications, etc. Jobs orchestrates heterogeneous tasks on a schedule; Spark Declarative Pipelines manages a tables within one of those tasks.
 
-Whereas, Lakeflow Connect provides managed connectors for ingesting from Salesforce, Workday, SQL Server, and similar — the sources Auto Loader can't reach because they aren't files in object storage. 
+Whereas, Lakeflow Connect provides managed connectors for ingesting from Salesforce, Workday, SQL Server, and similar — the sources Auto Loader can't reach because they aren't files in cloud storage. 
 
 **Canonical Pattern**: Connect ingests → Pipelines transforms → Jobs orchestrates the whole thing on a schedule.
 
@@ -21,7 +21,7 @@ An instance of execution of a Job is known as a Run.
 - Manual
 - Schedule: Triggers on fixed intervals (allows CRON Syntax)
 - File/Table Events: Trigger when a new file arrives or the table updates
-- Continuous: Keeps one run active at all times; restarting upon success and failures
+- Continuous: Keeps run active at all times; restarts upon success or failure
 
 ### CRON Syntax
 

@@ -35,7 +35,7 @@ One metastore per region, and a workspace attaches to exactly one metastore, but
 
 A user is an account-level identity with an email that's assigned to one or more workspaces. Users and workspaces have a many-to-many relationship and they're both account-scoped.
 
-A workspace is a deployment of Databricks having its own URL that users can access. It isolates its own compute-layer and control-layer resources. A worksapce attaches to a Metastore making all the UC Objects in it reachable (not necessarily readable; they need access control privileges)
+A workspace is an instance of Databricks having its own URL that users can access. It isolates its own control-layer and compute-layer resources. A workspace attaches to a Metastore making all the UC Objects in it reachable (not necessarily readable; they need access control privileges)
 
 **Account-scoped**: UC Metastore data (Catalogs, Schemas, Volumes, Tables, Views), Users, Storage credentials, External locations.
 **Workspace-scoped** : Cluster configurations, Notebooks, Git folders, Jobs, SDP Pipelines, Dashboards, and Secrets.
@@ -56,12 +56,12 @@ These three are collectively called Principals — identities that can be grante
 
 If a production pipeline is tied to a User, it erroneously gets all permissions of that User (even ones out of the scope of the pipeline) and the pipeline becmoes contingent upon that User's account - if they leave the organization and their account is deleted, the pipeline breaks.
 
-Hence, service principals are used to give non-human entities their own permissions decoupling them from Users entirely.
+Hence, service principals are used to give non-human entities their own permissions to decouple them from Users entirely.
 
-3) Group: A collection of principals — users, service principals, or other groups. Unlike the other two, groups are not something that uniquely identifies an entity. They exist purely as a collective unit of permission assignment.
+3) Group: A collection of principals — users, service principals, or other groups. Unlike the other two, a group isn't something that uniquely identifies an entity. They exist purely as a collective unit of permission assignment.
 
 Without groups, a team of 50 data engineers in the organization having 30 UC Grants would require 1500 distinct operations by the admin.
-With a DE group, each User can be collectively enlisted in that group which holds the 30 privileges.
+With a group, each User can be enlisted in a 'Data Engineer' group which collectively holds the 30 privileges.
 
 ### Role-Based Access Control
 
@@ -73,7 +73,7 @@ They have full access to every Metastore in the Databricks account. They are the
 
 2) Metastore Admin: Similar privileges to Account Admin but scoped only to the Metastore they're given the admin role for. They can also transfer ownership of the objects within that Metastore and have the capability to delete the Metastore.
 
-3) Object Owner: Every object in the Metastore will have an owner - by default, it is the Principal that created the object but it is transferrable by the current owner or the admins. They will have full access to the object without explicit permissions being granted.
+3) Object Owner: Every object in the Metastore will have an owner - by default, it is the Principal that created the object but it is transferrable by the current owner or the admins. They have full access to the object without explicit permissions being granted.
 
 4) Object User: Majority of the Users/Service Principals - anyone in the Metastore that's neither of the admins nor the object owner. They have no access to any of the objects by default and require explicit GRANTS using Access Control Lists (ACL).
 
@@ -131,9 +131,9 @@ GRANT ALL PRIVILEGES ON CATALOG <cat> TO <principal> -- full control of the cata
 
 #### ALL PRIVILEGES vs Object Owner
 
-`ALL PRIVILEGES` is a grant. It's a shorthand that expands to every privilege applicable to that securable — SELECT, MODIFY, USE SCHEMA, EXECUTE, CREATE TABLE, etc. depending on the level. It lets you use the object fully.
+`ALL PRIVILEGES` is a grant. It's a shorthand that expands to every privilege applicable to that securable — SELECT, MODIFY, EXECUTE, USE SCHEMA, CREATE TABLE, etc. depending on the level. It lets you use the object fully.
 
-Ownership is not a grant at all. It's a property stored of the object itself, like its name or its location. Every securable has exactly one owner, set to whoever created it, changeable only by `ALTER ... OWNER TO`. The owner holds ALL PRIVILEGES implicitly, and additionally can drop the object, alter it (MODIFY on Tables gives WRITE permissions but not ALTER nor DROP), and transfer ownership.
+Ownership is not a grant at all. It's a property stored of the object itself, like its name or its location. Every securable has exactly one owner, set to whoever created it, changeable only by `ALTER ... OWNER TO`. The owner holds ALL PRIVILEGES implicitly, and additionally can drop the object, alter it (MODIFY on Tables gives DML permissions but not DDl), and transfer ownership.
 
 ## Data-Level Security
 
@@ -225,7 +225,7 @@ Hence, instead of defining the rule for every object individually, it can be app
 
 An attribute is a key-value pair defined at the account-level that is applied to UC objects such as catalogs, schemas, tables, and columns. They describe charateristics of the object such as sensitivity (`pii = true`) or classification (`domain=finance`).
 
-'Governed' tags imply that the vocabulary is centralized - three different people can't create `pii`, `PII`, and `personal_info` as three seperate tags.
+'Governed' tags imply that the vocabulary is centralized - three different people shouldn't create `pii`, `PII`, and `personal_info` as three seperate tags.
 
 **Rule**: Metastore objects inherit tags from their parent catalog and schema (overriding is allowed) except at the column level - which require explicit tags.
 
@@ -278,7 +278,7 @@ To create a Policy via UI: Catalog -> Choose Catalog/Schema/Table -> Policies ->
 `Principals and scope`: Define the Principals subjected to this policy and the catalog/schema/table within the scope of this policy
 `Policy Type`: Row Filter or Column Mask
 `Row filter function`/`Masking function`: Select function from the catalog that: evaluates each row and returns a Boolean / returns a masked value
-`Function inputs`: For Row Filter Only. Map each function parameter to a specific column based on the tag it holds, such as filter via `access_type: region` tagged column
+`Function inputs`: For Row Filter Only. Map each function parameter to a specific column-based tag, such as passing `access_type: region` tagged columns
 `Column conditions`: For Column Mask Only. Specify the tag the column to be masked must hold, such as mask `pii: email` tagged columns
 
 Creating Row filter / Column masking policies via SQL:
