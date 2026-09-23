@@ -1,6 +1,7 @@
 # Lakeflow Spark Declarative Pipelines
 
-### Recent Changes to Naming:
+### Recent Changes to Naming
+
 `Delta Live Tables` are now now called `Lakeflow Spark Declarative Pipelines` 
 `import dlt` package has been replaced with `import dp`
 `@dlt` decorator has been replaced with `@dp`
@@ -14,7 +15,7 @@ Spark Declarative Pipelines are declarative ETL frameworks for building reliable
 
 SDPs also abstract away the differences between Batch and Stream processing. The same pipeline can be used for both and can be easily switched between the two by configuration.
 
-SDPs are automated declarative ETL pipelines. The traditional Databricks Jobs we've seen so far leverage SDPs by scheduling those pipelines within a workflow.
+SDPs are automated declarative ETL pipelines. The traditional Databricks Jobs we've seen so far leverage SDPs by scheduling those pipelines within a job/workflow.
 
 ## SDP Architecture
 
@@ -61,14 +62,15 @@ Two design decisions then arise for the resulting datasets:
 
 ### Streaming Table
 
-A streaming table is a Delta table that incrementally streams data.
-The engine keeps a checkpoint recording exactly which input records it has already consumed. On the next run it picks up from that offset and appends only the new rows.
+A streaming table is a Delta table that only incrementally reads data and allows upserts data while writing.
+The engine leverages Checkpoints recording exactly which input records it has already consumed. On the next run it picks up from that offset and appends only the new rows.
 
 Exactly once guarantees: Each source record contributes to the table exactly once, even after failures. This is ensured by the Checkpoints (avoids 0 commit of records) and atomic commits in the Transactional Log (avoids more than 1 commit).
 
-A Streaming Table never revisits history. Hence, the source has to be append-only such as Kafka, Event Hubs, streaming Cloud Files via Auto Loader.
+A Streaming Table never revisits history when reading the source. Hence, the source has to be incremental reading only such as Kafka, Event Hubs, streaming Cloud Files via Auto Loader.
+However, since it's a real table, it allows DML operations such as inserts, updates, and deletes.
 
-Since it's a real table, it allows DML operations such as inserts, updates, and deletes.
+Thus, a Streaming Tables only reads new data from the source and allows upsert operations on the sink
 
 ### Materialized Views
 
@@ -80,13 +82,16 @@ Used for building tables having Aggregate functions
 
 **Pattern**: Bronze, Silver -> Streaming Table; Gold -> Materialized Views
 
+Streaming Table: Only allow incremental reading and perform upsertions while writing
+Materialized View: Read the entire source and overwrite the complete sink
+
 ### Views
 
 No storage, no table, nothing published. Conceptually the same as Temporary Views - a named query that exists only in the pipeline and only survives the pipeline run instead of the Spark session.
 
 Since it isn't created as a UC Object, nothing outside the pipeline can refer to it.
 
-It is used to modularize and re-use logic within the pipeline that's be used multiple times such as a certain data-cleaning logic
+It is used to modularize and re-use logic within the pipeline that's expected to be used multiple times such as a certain data-cleaning logic
 
 # Spark Declarative Pipeline Project
 
@@ -123,19 +128,19 @@ The `OR REFRESH` is what makes this statement idempotent; first run of the pipel
 
 The `STREAMING TABLE` ensures that this is a streaming table by validating that the `AS SELECT` statement is a streaming query such as `cloud_files(...)` or `STREAM()`. A plain batch read will be rejected.
 
-Hence `CREATE OR REFRESH STREAMING TABLE x` is an idempotent declaration that x is a checkpointed Delta table fed by a streaming query — created on first run, incrementally appended on every run after, never rebuilt unless you explicitly force a Full Refresh via the Pipeline UI.
+Hence `CREATE OR REFRESH STREAMING TABLE x` is an idempotent declaration that x is a Delta table fed by a streaming query (implying that it's checkpointed) — created on first run, incrementally appended on every run after, never rebuilt unless you explicitly force a Full Refresh via the Pipeline UI.
 
-Notice that the Declarative Pipeline requires defining the dataset itself but abstracts away its management: `.outputMode(append)` implied by `STREAMING`. `.option("checkpointLocation", ...)` is managed by the pipeline. `.trigger(...)` moved to pipeline configuration. DAG ordering is handled as the `bronze_customers` appears in silver's `FROM` clause.
+Notice that the Declarative Pipeline requires defining the dataset itself but abstracts away its management: `.outputMode(append)` implied by `STREAMING` (`.outputMode(update)` implied by Auto CDC in Silver layer). `.option("checkpointLocation", ...)` is managed by the pipeline. `.trigger(...)` moved to pipeline configuration. DAG ordering is handled as the `bronze_customers` appears in silver's `FROM` clause.
 
 **Development vs Production Pipeline Mode**
 
-1) Auto-termination: In development mode, the Job Cluster is kept running even after the pipeline run finishes (default = 2hrs) which can be altered via the `pipelines.clusterShutdown.delay` prpoerty in `TBLPROPERTIES`. This allows debugging between runs without needing to restart the cluster everytime. In production mode, the cluster is terminated immediately after every run to minimize infrastructure costs.
+1) Auto-termination: In development mode, the Job Cluster is kept running even after the pipeline run finishes (default = 2hrs) which can be altered via the `pipelines.clusterShutdown.delay` property in `TBLPROPERTIES`. This allows debugging between runs without needing to restart the cluster everytime. In production mode, the cluster is terminated immediately after every run to minimize infrastructure costs.
 
 2) Auto retries: In development mode, retries are disabled by default since errors are expected but enabled by default in production mode.
 
 ### Process Customers Data - Silver Layer
 
-`FROM bronze_customers` peforms a batch load, i.e, overwrites the dataset in the destination table with all the current files in the source. Thus, the target can only be a materialized view. You can't build a streaming table from it — the pipeline will reject the definition.
+`FROM bronze_customers` peforms a batch load, i.e, reads the full current state of the source table. Thus, the target can only be a materialized view. You can't build a streaming table from it — the pipeline will reject the definition.
 
 `FROM STREAM(bronze_customers)` enables stream read on tables, i.e, incremental loading of data from the source table. The engine keeps a checkpoint recording how far into bronze_customers' transaction log it has read. On each run it picks up from that offset and processes only the rows appended since.
 
@@ -191,7 +196,7 @@ KEYS (columns) -- Column(s) used to uniquely identify an entity
 SEQUENCE BY sequence_column -- Column(s) defining recency for the latest record
 [COLUMNS {column_list | * EXCEPT (except_column_list)}] -- Columns to include/exclude in the target table
 [STORED AS {SCD TYPE 1 | SCD TYPE 2}] -- SCD Type Declaration (Default: Type 1)
-[TRACK HISTORY ON {column_list | * EXCEPT (except_column_list)}] -- Type 2 Only: Columns which columns actually trigger a new record (Default: All)
+[TRACK HISTORY ON {column_list | * EXCEPT (except_column_list)}] -- Type 2 Only: Which columns trigger a new record to be created (Default: All)
 ```
 
 Applying changes and updating the Customer's data from the cleaned records that passed the Data Quality Checks.
@@ -262,11 +267,12 @@ def created_bronze_addresses():
 
 ### Expectation Decorators
 
-The decorator type declares which action occurs if a row fails. The key-value pair passed as an argument within the decorator defines the name and the constraint of the expectation.
+The decorator type declares which action occurs if a row fails. 
+The key-value pair passed as an argument within the decorator defines the name and the constraint of the expectation.
 
-1) WARN: `dp.expect`, `dp.expect_all`
-2) DROP: `dp.expect_or_drop`, `dp.expect_all_or_drop`
-3) FAIL: `dp.expect_or_fail`, `dp.expect_all_or_fail`
+1) WARN: `@dp.expect`, `@dp.expect_all`
+2) DROP: `@dp.expect_or_drop`, `@dp.expect_all_or_drop`
+3) FAIL: `@dp.expect_or_fail`, `@dp.expect_all_or_fail`
 
 The multiple-contraints syntaxes take a Dictionary as an argument
 
