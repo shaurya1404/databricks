@@ -2,7 +2,7 @@
 
 Every organization eventually needs to give data to someone outside it: a partner, a vendor, a government regulator; another business unit on a different cloud.
 
-The traditional answers all amount to making a copy - using SFTP, APIs or Email to transfer data. These have limitations:
+The traditional answers point to making a copy - using SFTP, APIs or Email to transfer data. These have limitations:
 1) Stale Data: Copied data will become outdated very soon
 2) High Egress and Ingress Costs: High costs of transferring data across the network
 3) Data Duplication: Extra storage costs for copying existing data

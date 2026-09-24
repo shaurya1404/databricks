@@ -137,7 +137,7 @@ Ownership is not a grant at all. It's a property stored of the object itself, li
 
 ## Data-Level Security
 
-UC Catalog enables us to achieve object-level access control, i.e, whether the Principal gets access to the entire object or not. However, this is not sufficient in many scenarios. A regional manager should only be able to see data of the employees in their own region. Analysts should be able to aggregate headcount without being able to see everyone's pay.
+UC enables us to achieve object-level access control, i.e, whether the Principal gets access to the entire object or not. However, this is not sufficient in many scenarios. A regional manager should only be able to see data of the employees in their own region. Analysts should be able to aggregate headcount without being able to see everyone's pay.
 
 Data-Level security enables us to limit access to the data within an object without needing to create anew copy of the object. It does so via two mechanisms:
 
@@ -290,8 +290,8 @@ COMMENT opt_comment
 ( ROW FILTER | COLUMN MASK ) catalog.schema.function
 TO `principal_1`, `principal_2`, ...
 FOR TABLES 
-MATCH COLUMNS hasTagValue('key', 'value') AS c1 -- match column by tag in all the tables
-( USING | ON ) COLUMN c1 -- pass the aliased column as argumnts in the UDF
+MATCH COLUMNS hasTagValue('key', 'value') AS c1 -- match column by key-value tag in all the tables
+( USING | ON ) COLUMN c1 -- pass the aliased column(s) as arguments in the UDF
 ```
 
 4) Step 4: Attach Tags to the Columns

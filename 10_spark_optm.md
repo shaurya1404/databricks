@@ -79,7 +79,7 @@ Solutions:
 As Delta tables grow, their layouts can be become less efficient over time.
 Data is continuously being added via Batch and Stream workloads. Small files accumulate and related data may get spread across multiple files. This leads to Spark needing to read more files and perform more operations than what is needed. Thus, reducing query performance.
 
-Hence, Delta Lake provides several optimization techniques to ensure data is efficiently stores in Delta tables:
+Hence, Delta Lake provides several optimization techniques to ensure data is efficiently stored in Delta tables:
 
 1) OPTIMIZE: Consolidates many smaller files into fewer larger files
 2) Z-ORDER: Organizes data to speed up filter operations
@@ -97,19 +97,19 @@ Delta tables maintain a transaction log that creates a new file for every write,
 
 ***Note***: OPTIMIZE doesn't delete anything. It writes new files and marks the old ones as removed in the transaction log. The old files stay on storage until you run VACUUM. So right after OPTIMIZE your table physically takes more space, and time travel to older versions still works.
 
-`OPTIMIZE sales WHERE year = '2026` is valid too only if the WHERE clause consists of PARTITIONED BY columns. This is because OPTIMIZE rewrites whole files, so it needs to select whole directories, not rows.
+`OPTIMIZE sales WHERE year = '2026` is valid too only if the WHERE clause consists of PARTITIONED BY columns. This is because OPTIMIZE rewrites whole files, so it needs to select whole directories.
 
 `ZORDER BY` physically reorders rows during compaction via OPTIMIZE ensuring that similar values of the ZORDER BY clause columns are kept together in the same files. This allows overlooking a lot of files when filtering on the basis of these columns.
 
 ### Liquid Clustering
 
-Liquid Clustering is a Delta Lake data-layout technique declare which columns your queries filter on, and the platform takes responsibility for physically organizing the files to match — and without directories.
+Liquid Clustering is a Delta Lake data-layout optimization technique. You declare which columns your queries filter on, and the platform takes responsibility for physically organizing the files to match — and without directories.
 
 It replaces both table partitioning and ZORDER which were both manual and rigid.
 
 1) Manual -> Automatic
 
-When performing OPTIMIZE, files are automatically compacted AND clustered if Liquid Clustering is enabled. So, the new files created will implicitly be arranged on the current clustering columns mentioned in the transaction log while leaving the old files untouched (removed via VACUUM). Hence, incremental - no full-rewrites
+When performing OPTIMIZE, files are automatically compacted AND clustered if Liquid Clustering is enabled. So, the new files created will automatically be arranged on the current clustering columns mentioned in the transaction log while leaving the old files untouched (removed via VACUUM). Hence, incremental - no full-rewrites
 
 2) Rigid -> Flexible
 
