@@ -103,17 +103,25 @@ Delta tables maintain a transaction log that creates a new file for every write,
 
 ### Liquid Clustering
 
-Liquid Clustering is a Delta Lake data-layout optimization technique. You declare which columns your queries filter on, and the platform takes responsibility for physically organizing the files to match — and without directories.
+Liquid Clustering is a Delta Lake layout optimization technique that allows organizing a table's data so that queries can skip files they don't need. You declare which columns you usually filter on, and the engine arranges rows with the same values in those columns into the same files.
 
-It replaces both table partitioning and ZORDER which were both manual and rigid.
+It replaces both table PARTITION BY and ZORDER which were both manual, expensive, and rigid.
 
 1) Manual -> Automatic
 
-When performing OPTIMIZE, files are automatically compacted AND clustered if Liquid Clustering is enabled. So, the new files created will automatically be arranged on the current clustering columns mentioned in the transaction log while leaving the old files untouched (removed via VACUUM). Hence, incremental - no full-rewrites
+With ZORDER, the row re-arrangement is manual because the clustered columns must be remembered and manually passed in each `OPTIMIZE ... ZORDER BY` run.
+
+With Liquid Clustering, the clustered columns are a property of the Delta Table stored in the transaction logs - so you only run OPTIMIZE and clustering takes place automatically.
+
+2) Expensive Full Re-Write -> Cheap Incremental Write
+
+With ZORDER, the row re-arrangement is expensive because it isn't incremental - Each `OPTIMIZE ... ZORDER BY` run re-writes all the data including the existing well-organized one.
+
+Liquid Clustering only re-arranges the new data since the last OPTIMIZE command is re-arranged into new files while keeping the existing well-organized files as it is - thus, making it incremental instead of full re-write.
 
 2) Rigid -> Flexible
 
-With table partitioning, the engine relies on directory names for data skipping. This made it rigid since changing the PARTITIONED BY columns is not possible after the first time as it would require re-writing all directory names and content.
+With PARTITION BY, the engine relies on directory names for data skipping. This made it rigid since changing the PARTITIONED BY columns is not possible after the first time as it would require re-writing all directory names and content.
 
 Liquid Clustering keeps files with no directory hierarchy at all. The organization lives entirely in the transaction log, which records which key ranges each file covers. Data skipping then works based on file-level metadata rather than directory names. New data is just clustered according to the new cluster columns/keys while leaving older files as they are (they will be re-arranged in newer files when we run OPTIMIZE).
 
